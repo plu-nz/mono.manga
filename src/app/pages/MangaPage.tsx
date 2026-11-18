@@ -262,10 +262,10 @@ export default function MangaPage() {
                             <span class="chapter-meta">
                               {[chapter.groups?.join(', '), languageName(chapter.language), formatDate(chapter.publishedAt)].filter(Boolean).join(' · ')}
                             </span>
-                            <Show when={state()}>
+                            <Show when={state()?.status !== 'complete' ? state() : undefined}>
                               {current => (
                                 <span class="chapter-state">
-                                  {current().status === 'complete' ? t('Offline') : current().status === 'downloading' ? `${current().done}/${current().total}` : current().status === 'queued' ? t('Queued') : current().status === 'error' ? t('Download failed') : t('Partial')}
+                                  {current().status === 'downloading' ? `${current().done}/${current().total}` : current().status === 'queued' ? t('Queued') : current().status === 'error' ? t('Download failed') : t('Partial')}
                                 </span>
                               )}
                             </Show>
@@ -284,7 +284,7 @@ export default function MangaPage() {
                                   <div class="chapter-actions">
                                     <IconButton icon={read() ? 'unread' : 'check'} label={read() ? t('Mark as unread') : t('Mark as read')} pressed={read()} onClick={() => void setRead([chapter], !read())} />
                                     <Show when={loaded().details.provider !== 'local'}>
-                                      <IconButton icon="download" label={state()?.status === 'complete' ? t('Saved offline') : t('Save offline')} disabled={Boolean(state()) && state()!.status !== 'error' && state()!.status !== 'partial'} onClick={() => saveOffline([chapter])} />
+                                      <IconButton icon="download" class={state()?.status === 'complete' ? 'is-done' : ''} label={state()?.status === 'complete' ? t('Saved offline') : t('Save offline')} disabled={Boolean(state()) && state()!.status !== 'error' && state()!.status !== 'partial'} onClick={() => saveOffline([chapter])} />
                                     </Show>
                                     <IconButton icon="send" class={isSentToKindle(key(), chapter.id) ? 'is-done' : ''} label={isSentToKindle(key(), chapter.id) ? t('On Kindle · send again') : t('Send to Kindle')} onClick={() => sendToKindle([chapter])} />
                                   </div>
