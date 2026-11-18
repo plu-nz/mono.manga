@@ -87,6 +87,7 @@ export const translations: Record<string, readonly [string, string]> = {
   'Main': ['Principal', 'Principal'],
   'Mark all as seen': ['Marcar tudo como visto', 'Marcar todo como visto'],
   'Mark as read': ['Marcar como lido', 'Marcar como leído'],
+  'Mark as unread': ['Marcar como não lido', 'Marcar como no leído'],
   'New': ['Novo', 'Nuevo'],
   'New chapters of titles in your library appear here. The app checks when you open it.': ['Capítulos novos dos títulos da sua biblioteca aparecem aqui. O app verifica quando você o abre.', 'Los capítulos nuevos de los títulos de tu biblioteca aparecen aquí. La app los busca cuando la abres.'],
   'Next chapter': ['Próximo capítulo', 'Capítulo siguiente'],

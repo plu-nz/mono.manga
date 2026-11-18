@@ -1,7 +1,9 @@
 import { createStore, reconcile, unwrap } from 'solid-js/store';
 import { createSignal } from 'solid-js';
 import {
+  chapterMarks,
   DEFAULT_SETTINGS,
+  readChapterIds,
   mangaKey,
   type AppSettings,
   type ChapterSummary,
@@ -134,18 +136,22 @@ export async function saveProgress(input: {
   pageCount: number;
 }): Promise<void> {
   const previous = progress[input.key];
-  const read = new Set(previous && !previous.deleted ? previous.read ?? [] : []);
+  const chapters = previous && !previous.deleted ? chapterMarks(unwrap(previous)) : {};
+  const now = Date.now();
   // Reaching the last page counts as finishing the chapter.
-  if (input.pageCount > 0 && input.page >= input.pageCount - 1) read.add(input.chapter.id);
+  if (input.pageCount > 0 && input.page >= input.pageCount - 1 && !chapters[input.chapter.id]?.read) {
+    chapters[input.chapter.id] = { read: true, at: now };
+  }
   const next: ReadingProgress = {
     key: input.key,
     chapterId: input.chapter.id,
     chapterLabel: input.chapterLabel,
     page: input.page,
     pageCount: input.pageCount,
-    read: [...read],
-    updatedAt: Date.now(),
+    chapters,
+    updatedAt: now,
   };
+  next.read = readChapterIds(next);
   await (await db()).put('progress', plain(next));
   setProgress(input.key, reconcile(next));
   changed();
@@ -153,11 +159,14 @@ export async function saveProgress(input: {
 
 export async function setChaptersRead(key: MangaKey, chapterIds: string[], value: boolean): Promise<void> {
   const previous = progress[key];
-  const read = new Set(previous && !previous.deleted ? previous.read ?? [] : []);
-  for (const id of chapterIds) value ? read.add(id) : read.delete(id);
-  const next: ReadingProgress = previous && !previous.deleted
-    ? { ...previous, read: [...read], updatedAt: Date.now() }
-    : { key, chapterId: chapterIds[0] ?? '', page: 0, pageCount: 0, read: [...read], updatedAt: Date.now() };
+  const live = previous && !previous.deleted ? unwrap(previous) : undefined;
+  const chapters = chapterMarks(live);
+  const now = Date.now();
+  for (const id of chapterIds) chapters[id] = { read: value, at: now };
+  const next: ReadingProgress = live
+    ? { ...live, chapters, updatedAt: now }
+    : { key, chapterId: chapterIds[0] ?? '', page: 0, pageCount: 0, chapters, updatedAt: now };
+  next.read = readChapterIds(next);
   await (await db()).put('progress', plain(next));
   setProgress(key, reconcile(next));
   changed();
@@ -190,7 +199,9 @@ export function isSentToKindle(key: MangaKey, chapterId: string): boolean {
 
 export function isChapterRead(key: MangaKey, chapterId: string): boolean {
   const entry = progress[key];
-  return Boolean(entry && !entry.deleted && entry.read?.includes(chapterId));
+  if (!entry || entry.deleted) return false;
+  const mark = entry.chapters?.[chapterId];
+  return mark ? mark.read : Boolean(entry.read?.includes(chapterId));
 }
 
 export async function updateSettings(patch: Partial<Omit<AppSettings, 'updatedAt'>>): Promise<void> {

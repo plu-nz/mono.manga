@@ -148,8 +148,51 @@ export interface ReadingProgress extends SyncRecord {
   /** Zero-based page index. */
   page: number;
   pageCount: number;
-  /** Chapters the user finished, by chapter id. */
+  /**
+   * Read state per chapter id with the time it last changed, so devices merge
+   * chapter by chapter (a later "unread" beats an earlier "read").
+   */
+  chapters?: Record<string, ChapterMark>;
+  /** Legacy list of finished chapter ids, still written for older app versions. */
   read?: string[];
+}
+
+export interface ChapterMark {
+  read: boolean;
+  /** Milliseconds since epoch of the last change. */
+  at: number;
+}
+
+/** Read marks of a progress record, treating legacy `read` ids as read at `updatedAt`. */
+export function chapterMarks(progress: Pick<ReadingProgress, 'chapters' | 'read' | 'updatedAt'> | undefined): Record<string, ChapterMark> {
+  const marks: Record<string, ChapterMark> = {};
+  for (const id of progress?.read ?? []) marks[id] = { read: true, at: progress!.updatedAt };
+  for (const [id, mark] of Object.entries(progress?.chapters ?? {})) marks[id] = mark;
+  return marks;
+}
+
+/** Chapter ids currently marked as read. */
+export function readChapterIds(progress: Pick<ReadingProgress, 'chapters' | 'read' | 'updatedAt'> | undefined): string[] {
+  return Object.entries(chapterMarks(progress)).filter(([, mark]) => mark.read).map(([id]) => id);
+}
+
+/**
+ * Merge two devices' progress for one title: the reading position follows the
+ * newer record; read marks merge per chapter, newest change winning (ties: read).
+ */
+export function mergeProgress(a: ReadingProgress, b: ReadingProgress): ReadingProgress {
+  const newer = a.updatedAt >= b.updatedAt ? a : b;
+  const marksA = chapterMarks(a);
+  const marksB = chapterMarks(b);
+  const chapters: Record<string, ChapterMark> = {};
+  for (const id of new Set([...Object.keys(marksA), ...Object.keys(marksB)])) {
+    const x = marksA[id];
+    const y = marksB[id];
+    chapters[id] = !x ? y : !y ? x : x.at !== y.at ? (x.at > y.at ? x : y) : { read: x.read || y.read, at: x.at };
+  }
+  const merged: ReadingProgress = { ...newer, chapters, updatedAt: Math.max(a.updatedAt, b.updatedAt) };
+  merged.read = readChapterIds(merged);
+  return merged;
 }
 
 export type KindleModelId = string;

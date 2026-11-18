@@ -29,6 +29,9 @@ describe('library store', () => {
     const chapter = { provider: 'mangadex' as const, mangaId: 'abc', id: 'c1', language: 'en', pages: 3 };
     await store.saveProgress({ key: 'mangadex:abc', chapter, chapterLabel: 'Ch. 1', page: 2, pageCount: 3 });
     expect(store.isChapterRead('mangadex:abc', 'c1')).toBe(true);
+    await store.setChaptersRead('mangadex:abc', ['c1'], false);
+    expect(store.isChapterRead('mangadex:abc', 'c1')).toBe(false);
+    expect((await store.readCollection('progress'))['mangadex:abc']).toMatchObject({ read: [], chapters: { c1: { read: false } } });
     await store.addToLibrary({ ...details, provider: 'local', id: 'mine' });
     expect(Object.keys(await store.readCollection('library'))).toEqual([]);
   });

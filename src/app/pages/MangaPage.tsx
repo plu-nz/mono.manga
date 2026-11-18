@@ -229,6 +229,7 @@ export default function MangaPage() {
                 <span>{tn(selectedChapters().length, '{count} selected', '{count} selected')}</span>
                 <div class="selection-actions">
                   <IconButton icon="check" label={t('Mark as read')} disabled={!selectedChapters().length} onClick={() => void setChaptersRead(key(), selectedChapters().map(chapter => chapter.id), true).then(stopSelecting)} />
+                  <IconButton icon="unread" label={t('Mark as unread')} disabled={!selectedChapters().length} onClick={() => void setChaptersRead(key(), selectedChapters().map(chapter => chapter.id), false).then(stopSelecting)} />
                   <Show when={loaded().details.provider !== 'local'}>
                     <IconButton icon="download" label={t('Save offline')} disabled={!selectedChapters().length} onClick={() => {
                       queueDownloads(selectedChapters(), loaded().details.title);

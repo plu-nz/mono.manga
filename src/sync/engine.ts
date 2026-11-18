@@ -9,7 +9,7 @@
  * can overwrite each other's document. Nothing is lost: each device keeps its
  * records locally and the next sync re-pushes anything missing remotely.
  */
-import type { SyncRecord } from '../core/types';
+import { mergeProgress, type ReadingProgress, type SyncRecord } from '../core/types';
 import { GoogleError } from '../google/errors';
 import type { DriveStore } from '../google/drive';
 import { mergeRecords } from './merge';
@@ -80,7 +80,10 @@ export function createSyncEngine(options: {
     const remoteFile = await options.remote.read<unknown>(name);
     const remoteRecords = remoteFile ? parseRemote(collection, remoteFile.data) : {};
     const localRecords = await options.local.read(collection);
-    const { merged, localChanged, remoteChanged } = mergeRecords(localRecords, remoteRecords, now());
+    const combine = collection === 'progress'
+      ? (l: SyncRecord, r: SyncRecord) => mergeProgress(l as ReadingProgress, r as ReadingProgress) as SyncRecord
+      : undefined;
+    const { merged, localChanged, remoteChanged } = mergeRecords(localRecords, remoteRecords, now(), combine);
 
     if (localChanged.length) {
       const changes: Record<string, SyncRecord> = {};

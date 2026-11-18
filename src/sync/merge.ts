@@ -10,6 +10,8 @@
  *   merged result. Devices offline longer than that may resurrect a deleted
  *   record; this is the usual trade-off for bounded storage.
  * - Records without a finite numeric `updatedAt` are ignored as corrupt.
+ * - A collection may pass `combine` to merge two live (non-deleted) versions
+ *   field by field instead of picking one (used for reading progress).
  */
 import type { SyncRecord } from '../core/types';
 
@@ -45,6 +47,7 @@ export function mergeRecords<T extends SyncRecord>(
   local: Record<string, T>,
   remote: Record<string, T>,
   now: number,
+  combine?: (local: T, remote: T) => T,
 ): MergeResult<T> {
   const merged: Record<string, T> = {};
   const localChanged: string[] = [];
@@ -58,7 +61,7 @@ export function mergeRecords<T extends SyncRecord>(
     if (remote[key] !== undefined && !r) remoteChanged = true;
 
     let winner: T | undefined;
-    if (l && r) winner = l.updatedAt > r.updatedAt ? l : r;
+    if (l && r) winner = combine && !l.deleted && !r.deleted ? combine(l, r) : l.updatedAt > r.updatedAt ? l : r;
     else winner = l ?? r;
     if (!winner) continue;
 
