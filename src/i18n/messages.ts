@@ -165,6 +165,8 @@ export const translations: Record<string, readonly [string, string]> = {
   'Select': ['Selecionar', 'Seleccionar'],
   'Select chapters on a title and choose “Save offline” to read without a connection. Imported files also appear here.': ['Selecione capítulos de um título e escolha “Salvar offline” para ler sem conexão. Arquivos importados também aparecem aqui.', 'Selecciona capítulos de un título y elige “Guardar sin conexión” para leer sin internet. Los archivos importados también aparecen aquí.'],
   'Select volume': ['Selecionar volume', 'Seleccionar volumen'],
+  'Press and hold a chapter to select several.': ['Toque e segure um capítulo para selecionar vários.', 'Mantén pulsado un capítulo para seleccionar varios.'],
+  'Saved offline': ['Salvo offline', 'Guardado sin conexión'],
   'Select all': ['Selecionar todos', 'Seleccionar todos'],
   'Clear all': ['Limpar seleção', 'Quitar selección'],
   'Selected chapters': ['Capítulos selecionados', 'Capítulos seleccionados'],

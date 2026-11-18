@@ -1,4 +1,4 @@
-import { createMemo, createResource, createSignal, For, Show } from 'solid-js';
+import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show } from 'solid-js';
 import { A, useNavigate, useParams } from '@solidjs/router';
 import { Button } from '@plunz/storybook';
 import { chapterLabel, mangaKey, type ChapterSummary, type ReadingMode } from '../../core/types';
@@ -8,6 +8,7 @@ import { reportReadToTracker, syncTitleWithTracker } from '../../trackers/sync';
 import { extraSourcesUnlocked } from '../../providers/weebcentral/session';
 import { WEEBCENTRAL_NAME } from '../../providers/weebcentral';
 import { SourceSheet } from '../SourceSheet';
+import { longPress } from '../long-press';
 import {
   effectiveMode,
   isChapterRead,
@@ -44,6 +45,15 @@ export default function MangaPage() {
   const [selected, setSelected] = createSignal<Set<string>>(new Set());
   const [expanded, setExpanded] = createSignal(false);
   const [sending, setSending] = createSignal(false);
+  const [sendTargets, setSendTargets] = createSignal<ChapterSummary[]>([]);
+  /** Volumes the user collapsed on this screen, by group key. */
+  const [collapsed, setCollapsed] = createSignal<Set<string>>(new Set());
+  const groupKey = (group: { volume?: string; chapters: ChapterSummary[] }) => `${group.volume ?? ''}|${group.chapters[0]?.id ?? ''}`;
+  function toggleCollapsed(id: string) {
+    const next = new Set(collapsed());
+    next.has(id) ? next.delete(id) : next.add(id);
+    setCollapsed(next);
+  }
   const [linking, setLinking] = createSignal(false);
   const sourceLink = () => (library[key()]?.deleted ? undefined : library[key()]?.sources?.weebcentral);
 
@@ -90,6 +100,39 @@ export default function MangaPage() {
 
   function readHref(chapter: ChapterSummary) {
     return `/read/${chapter.provider}/${encodeURIComponent(chapter.mangaId)}/${encodeURIComponent(chapter.id)}`;
+  }
+
+  // Escape leaves selection, like the Done button.
+  createEffect(() => {
+    if (!selecting()) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') stopSelecting(); };
+    document.addEventListener('keydown', onKey);
+    onCleanup(() => document.removeEventListener('keydown', onKey));
+  });
+
+  /** The release after a hold lands on the new checkbox row; ignore it so the chapter stays selected. */
+  let ignoreClicksUntil = 0;
+
+  function startSelecting(chapter: ChapterSummary) {
+    ignoreClicksUntil = Date.now() + 700;
+    setSelected(new Set([chapter.id]));
+    setSelecting(true);
+  }
+
+  function sendToKindle(chapters: ChapterSummary[]) {
+    setSendTargets(chapters);
+    setSending(true);
+  }
+
+  function setRead(chapters: ChapterSummary[], value: boolean) {
+    return setChaptersRead(key(), chapters.map(chapter => chapter.id), value).then(() => {
+      if (value && data()) reportReadToTracker(data()!.details, data()!.chapters);
+    });
+  }
+
+  function saveOffline(chapters: ChapterSummary[]) {
+    queueDownloads(chapters, data()!.details.title);
+    toast(tn(chapters.length, 'Saving {count} chapter for offline reading.', 'Saving {count} chapters for offline reading.'));
   }
 
   function stopSelecting() {
@@ -176,10 +219,13 @@ export default function MangaPage() {
                   <Button type="button" size="sm" variant="ghost" aria-pressed={Boolean(settings.newestFirst)} onClick={() => void updateSettings({ newestFirst: !settings.newestFirst })}>
                     <Icon name="sort" size={18} /> {settings.newestFirst ? t('Newest first') : t('Oldest first')}
                   </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => (selecting() ? stopSelecting() : setSelecting(true))}>{selecting() ? t('Done') : t('Select')}</Button>
                 </div>
               </Show>
             </div>
+
+            <Show when={loaded().chapters.length && !selecting()}>
+              <p class="hint">{t('Press and hold a chapter to select several.')}</p>
+            </Show>
 
             <Show when={loaded().chapters.length === 0}>
               <EmptyState icon="library" title={t('No chapters in your languages')}>
@@ -191,13 +237,20 @@ export default function MangaPage() {
               {group => (
                 <div class="volume">
                   <div class="volume-head">
-                    <h3>{group.volume ? t('Volume {volume}', { volume: group.volume }) : t('No volume')}</h3>
+                    <h3>
+                      <button type="button" class="volume-toggle" aria-expanded={!collapsed().has(groupKey(group))} onClick={() => toggleCollapsed(groupKey(group))}>
+                        <Icon name="chevron" size={18} class="volume-chevron" />
+                        <span>{group.volume ? t('Volume {volume}', { volume: group.volume }) : t('No volume')}</span>
+                        <span class="volume-count">{group.chapters.length}</span>
+                      </button>
+                    </h3>
                     <Show when={selecting()}>
                       <button type="button" class="text-button" onClick={() => toggleGroup(group.chapters)}>
                         {allSelected(group.chapters) ? t('Clear volume') : t('Select volume')}
                       </button>
                     </Show>
                   </div>
+                  <Show when={!collapsed().has(groupKey(group))}>
                   <ul class="chapters">
                     <For each={group.chapters}>
                       {chapter => {
@@ -228,8 +281,19 @@ export default function MangaPage() {
                                 {body}<span class="chapter-state"><Icon name="external" size={16} /> {t('Official site')}</span>
                               </a>
                             }>
-                              <Show when={selecting()} fallback={<A class="chapter-link" href={readHref(chapter)}>{body}</A>}>
-                                <label class="chapter-link">
+                              <Show when={selecting()} fallback={
+                                <>
+                                  <A class="chapter-link" href={readHref(chapter)} {...longPress(() => startSelecting(chapter))}>{body}</A>
+                                  <div class="chapter-actions">
+                                    <IconButton icon="send" label={t('Send to Kindle')} onClick={() => sendToKindle([chapter])} />
+                                    <Show when={loaded().details.provider !== 'local'}>
+                                      <IconButton icon="download" label={state()?.status === 'complete' ? t('Saved offline') : t('Save offline')} disabled={Boolean(state()) && state()!.status !== 'error' && state()!.status !== 'partial'} onClick={() => saveOffline([chapter])} />
+                                    </Show>
+                                    <IconButton icon={read() ? 'unread' : 'check'} label={read() ? t('Mark as unread') : t('Mark as read')} pressed={read()} onClick={() => void setRead([chapter], !read())} />
+                                  </div>
+                                </>
+                              }>
+                                <label class="chapter-link" onClick={event => { if (Date.now() < ignoreClicksUntil) event.preventDefault(); }}>
                                   <input type="checkbox" checked={selected().has(chapter.id)} onChange={() => toggle(chapter)} />
                                   <span class="chapter-text">{body}</span>
                                 </label>
@@ -240,6 +304,7 @@ export default function MangaPage() {
                       }}
                     </For>
                   </ul>
+                  </Show>
                 </div>
               )}
             </For>
@@ -259,23 +324,20 @@ export default function MangaPage() {
                   </button>
                 </div>
                 <div class="selection-actions">
-                  <IconButton icon="check" label={t('Mark as read')} disabled={!selectedChapters().length} onClick={() => void setChaptersRead(key(), selectedChapters().map(chapter => chapter.id), true).then(() => { reportReadToTracker(data()!.details, data()!.chapters); stopSelecting(); })} />
-                  <IconButton icon="unread" label={t('Mark as unread')} disabled={!selectedChapters().length} onClick={() => void setChaptersRead(key(), selectedChapters().map(chapter => chapter.id), false).then(stopSelecting)} />
+                  <IconButton icon="check" label={t('Mark as read')} disabled={!selectedChapters().length} onClick={() => void setRead(selectedChapters(), true).then(stopSelecting)} />
+                  <IconButton icon="unread" label={t('Mark as unread')} disabled={!selectedChapters().length} onClick={() => void setRead(selectedChapters(), false).then(stopSelecting)} />
                   <Show when={loaded().details.provider !== 'local'}>
-                    <IconButton icon="download" label={t('Save offline')} disabled={!selectedChapters().length} onClick={() => {
-                      queueDownloads(selectedChapters(), loaded().details.title);
-                      toast(tn(selectedChapters().length, 'Saving {count} chapter for offline reading.', 'Saving {count} chapters for offline reading.'));
-                      stopSelecting();
-                    }} />
+                    <IconButton icon="download" label={t('Save offline')} disabled={!selectedChapters().length} onClick={() => { saveOffline(selectedChapters()); stopSelecting(); }} />
                   </Show>
-                  <Button type="button" size="sm" disabled={!selectedChapters().length} onClick={() => setSending(true)}>
+                  <Button type="button" size="sm" disabled={!selectedChapters().length} onClick={() => sendToKindle(selectedChapters())}>
                     <Icon name="send" size={18} /> {t('Kindle')}
                   </Button>
+                  <IconButton icon="close" label={t('Done')} onClick={stopSelecting} />
                 </div>
               </div>
             </Show>
 
-            <SendSheet open={sending()} onClose={() => setSending(false)} details={loaded().details} chapters={selectedChapters()} mode={mode()} />
+            <SendSheet open={sending()} onClose={() => setSending(false)} details={loaded().details} chapters={sendTargets()} mode={mode()} />
           </>
         )}
       </Show>
