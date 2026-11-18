@@ -50,7 +50,9 @@ body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
 .text-button.danger { color: var(--plz-red); }
 
 /* Bottom navigation, within thumb reach. */
-.bottom-nav { position: fixed; inset: auto 0 0 0; z-index: 20; display: grid; grid-template-columns: repeat(4, 1fr); padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid var(--plz-line); background: color-mix(in srgb, var(--plz-bg) 92%, transparent); backdrop-filter: blur(12px); }
+.bottom-nav { position: fixed; inset: auto 0 0 0; z-index: 20; display: grid; grid-template-columns: repeat(4, 1fr); padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid var(--plz-line); background: color-mix(in srgb, var(--plz-bg) 92%, transparent); backdrop-filter: blur(12px);
+  /* Full-width bar, items aligned with the 960px content column (minus its 16px gutters). */
+  padding-inline: max(0px, calc((100% - 928px) / 2)); }
 .nav-link { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 60px; color: var(--plz-muted) !important; text-decoration: none; font-size: .6875rem; font-weight: 700; }
 .nav-link.active { color: var(--plz-accent) !important; }
 .nav-icon { position: relative; }
@@ -119,7 +121,7 @@ label.chapter-link input { width: 22px; height: 22px; accent-color: var(--plz-ac
 .chapter-meta { grid-column: 1; font-size: .75rem; color: var(--plz-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chapter-state { grid-column: 2; grid-row: 1 / span 2; font-size: .75rem; color: var(--plz-accent); display: inline-flex; align-items: center; gap: 4px; }
 .chapter-link.external { opacity: .75; }
-.selection-bar { position: fixed; left: 0; right: 0; bottom: calc(60px + env(safe-area-inset-bottom)); z-index: 21; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 16px; border-top: 1px solid var(--plz-line); background: var(--plz-raised); }
+.selection-bar { position: fixed; left: 0; right: 0; bottom: calc(60px + env(safe-area-inset-bottom)); z-index: 21; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px max(16px, calc((100% - 928px) / 2)); border-top: 1px solid var(--plz-line); background: var(--plz-raised); }
 .selection-actions { display: flex; align-items: center; gap: 4px; }
 .manga-page { padding-bottom: 72px; }
 
