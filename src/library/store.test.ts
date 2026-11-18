@@ -49,4 +49,18 @@ describe('library store', () => {
     await store.updateSettings({ kindleEmail: 'reader@kindle.com' });
     expect(store.settings).toMatchObject({ languages: ['pt-br'], kindleModel: 'oasis', kindleEmail: 'reader@kindle.com' });
   });
+
+  it('records chapters sent to the Kindle with the highest number as baseline', async () => {
+    const store = await import('./store');
+    await store.loadLibrary();
+    const chapter = (id: string, number: string) => ({ provider: 'mangadex' as const, mangaId: 'abc', id, number, language: 'en', pages: 5, groups: ['G'] });
+    await store.markSentToKindle(details, [chapter('c9', '9'), chapter('c10', '10')]);
+    expect(store.isInLibrary('mangadex:abc')).toBe(true);
+    expect(store.library['mangadex:abc'].kindle).toMatchObject({ sentIds: ['c9', 'c10'], lastNumber: 10, lastGroups: ['G'] });
+    await store.markSentToKindle(details, [chapter('c3', '3')]);
+    expect(store.library['mangadex:abc'].kindle).toMatchObject({ sentIds: ['c9', 'c10', 'c3'], lastNumber: 10 });
+    expect(store.isSentToKindle('mangadex:abc', 'c3')).toBe(true);
+    const synced = await store.readCollection('library');
+    expect((synced['mangadex:abc'] as { kindle?: unknown }).kindle).toBeTruthy();
+  });
 });

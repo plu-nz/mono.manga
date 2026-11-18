@@ -80,7 +80,7 @@ export async function buildEpubs(input: {
     const signal = input.signal;
     async function* pages(): AsyncGenerator<Blob> {
       for (const chapter of plan.chapters) {
-        const handles = await loadChapterPages(chapter, { dataSaver: input.dataSaver, signal });
+        const handles = await withRateLimitRetry(() => loadChapterPages(chapter, { dataSaver: input.dataSaver, signal }), signal);
         yield* prefetched(handles, signal);
       }
     }
@@ -103,6 +103,26 @@ export async function buildEpubs(input: {
     output.push(...parts);
   }
   return output;
+}
+
+/**
+ * MangaDex allows about 40 chapter-server lookups per minute. Long batches can
+ * hit that limit; wait for the advertised delay and try again a few times.
+ */
+export async function withRateLimitRetry<T>(task: () => Promise<T>, signal?: AbortSignal, attempts = 4): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await task();
+    } catch (error) {
+      const { code, retryAfter } = (error ?? {}) as { code?: string; retryAfter?: number };
+      if (code !== 'rate_limited' || attempt >= attempts || signal?.aborted) throw error;
+      const seconds = Math.min(Math.max(retryAfter ?? 15, 1), 90);
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(resolve, seconds * 1000);
+        signal?.addEventListener('abort', () => { clearTimeout(timer); reject(signal.reason); }, { once: true });
+      });
+    }
+  }
 }
 
 /** Pages fetched ahead while the converter works on the current one. */

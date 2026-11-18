@@ -71,7 +71,13 @@ export function isInLibrary(key: MangaKey): boolean {
   return Boolean(entry && !entry.deleted);
 }
 
-async function putEntry(entry: LibraryEntry): Promise<void> {
+/** Store values are proxies, which IndexedDB cannot clone; persist a plain copy. */
+function plain<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+async function putEntry(input: LibraryEntry): Promise<void> {
+  const entry = plain(input);
   await (await db()).put('library', entry);
   setLibrary(entry.key, reconcile(entry));
   changed();
@@ -90,6 +96,7 @@ export async function addToLibrary(details: MangaDetails): Promise<void> {
     originalLanguage: details.originalLanguage,
     favorite: previous && !previous.deleted ? previous.favorite : false,
     mode: previous?.mode,
+    kindle: previous?.kindle,
     addedAt: previous && !previous.deleted ? previous.addedAt : now,
     updatedAt: now,
   });
@@ -134,7 +141,7 @@ export async function saveProgress(input: {
     read: [...read],
     updatedAt: Date.now(),
   };
-  await (await db()).put('progress', next);
+  await (await db()).put('progress', plain(next));
   setProgress(input.key, reconcile(next));
   changed();
 }
@@ -146,9 +153,34 @@ export async function setChaptersRead(key: MangaKey, chapterIds: string[], value
   const next: ReadingProgress = previous && !previous.deleted
     ? { ...previous, read: [...read], updatedAt: Date.now() }
     : { key, chapterId: chapterIds[0] ?? '', page: 0, pageCount: 0, read: [...read], updatedAt: Date.now() };
-  await (await db()).put('progress', next);
+  await (await db()).put('progress', plain(next));
   setProgress(key, reconcile(next));
   changed();
+}
+
+const MAX_SENT_IDS = 2000;
+
+/** Record chapters delivered to the Kindle (or marked as such) for a title in the library. */
+export async function markSentToKindle(details: MangaDetails, chapters: ChapterSummary[]): Promise<void> {
+  if (!chapters.length) return;
+  const key = mangaKey(details.provider, details.id);
+  if (!isInLibrary(key)) await addToLibrary(details);
+  const entry = library[key];
+  const previous = entry.kindle;
+  const sent = [...(previous?.sentIds ?? []).filter(id => !chapters.some(chapter => chapter.id === id)), ...chapters.map(chapter => chapter.id)];
+  const numbers = chapters.map(chapter => Number(chapter.number)).filter(Number.isFinite);
+  const highest = numbers.length ? Math.max(...numbers) : undefined;
+  const lastNumber = highest === undefined ? previous?.lastNumber : Math.max(highest, previous?.lastNumber ?? Number.NEGATIVE_INFINITY);
+  const latest = [...chapters].reverse().find(chapter => Number(chapter.number) === highest) ?? chapters[chapters.length - 1];
+  await putEntry({
+    ...entry,
+    kindle: { sentIds: sent.slice(-MAX_SENT_IDS), lastNumber, lastGroups: latest.groups ?? previous?.lastGroups, lastSentAt: Date.now() },
+    updatedAt: Date.now(),
+  });
+}
+
+export function isSentToKindle(key: MangaKey, chapterId: string): boolean {
+  return Boolean(library[key]?.kindle?.sentIds.includes(chapterId));
 }
 
 export function isChapterRead(key: MangaKey, chapterId: string): boolean {
@@ -160,7 +192,7 @@ export async function updateSettings(patch: Partial<Omit<AppSettings, 'updatedAt
   // Merge into the stored settings, never into defaults shown before loading finished.
   await loadLibrary();
   // Store values are proxies, which IndexedDB cannot clone; persist a plain copy.
-  const next: AppSettings = structuredClone({ ...unwrap(settings), ...patch, updatedAt: Date.now() });
+  const next: AppSettings = plain({ ...unwrap(settings), ...patch, updatedAt: Date.now() });
   await writeSettings(next);
   setSettingsStore(reconcile(next));
   changed();

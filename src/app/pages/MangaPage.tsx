@@ -8,6 +8,7 @@ import {
   effectiveMode,
   isChapterRead,
   isInLibrary,
+  isSentToKindle,
   library,
   progress,
   removeFromLibrary,
@@ -178,6 +179,9 @@ export default function MangaPage() {
                             <span class="chapter-meta">
                               {[chapter.groups?.join(', '), languageName(chapter.language), formatDate(chapter.publishedAt)].filter(Boolean).join(' · ')}
                             </span>
+                            <Show when={!state() && isSentToKindle(key(), chapter.id)}>
+                              <span class="chapter-state sent">{t('On Kindle')}</span>
+                            </Show>
                             <Show when={state()}>
                               {current => (
                                 <span class="chapter-state">

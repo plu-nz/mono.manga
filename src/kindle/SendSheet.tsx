@@ -6,7 +6,7 @@ import { getKindleProfile } from './profiles';
 import { buildEpubs, downloadBlob, isKindleAddress, planExports, type BuildProgress, type Grouping } from './send';
 import { getAccessToken, isGoogleConfigured, maxAttachmentBytes, preloadGoogle, sendFileByEmail } from '../google';
 import { DEFAULT_MAX_PART_BYTES } from '../converter';
-import { settings, updateSettings } from '../library/store';
+import { markSentToKindle, settings, updateSettings } from '../library/store';
 import { formatBytes, t, tn } from '../i18n';
 import { ProgressBar, Sheet, errorMessage, toast } from '../app/ui';
 
@@ -98,6 +98,7 @@ export function SendSheet(props: {
         sent.push({ fileName: part.fileName, size: part.blob.size, sent: true, blob: part.blob });
         setResults([...sent]);
       }
+      await markSentToKindle(props.details, props.chapters);
       setPhase('done');
       setMessage(t('Sent. Your Kindle will download it the next time it connects to Wi-Fi.'));
       toast(t('Sent to Kindle.'));
@@ -199,6 +200,11 @@ export function SendSheet(props: {
           </Show>
         </div>
         <p class="hint">{t('Conversion happens on this device. Keep this screen open until it finishes.')}</p>
+        <Show when={!busy()}>
+          <button type="button" class="text-button" onClick={() => void markSentToKindle(props.details, props.chapters).then(() => { toast(t('Marked as sent. “Send new chapters” continues after these.')); close(); })}>
+            {t('Already on my Kindle — mark as sent')}
+          </button>
+        </Show>
       </div>
     </Sheet>
   );

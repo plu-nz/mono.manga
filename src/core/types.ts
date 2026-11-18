@@ -127,6 +127,18 @@ export interface LibraryEntry extends SyncRecord {
   /** Per-title override of the reading mode. */
   mode?: ReadingMode;
   addedAt: number;
+  /** What was already delivered to the user's Kindle, so only new chapters are sent next time. */
+  kindle?: KindleSendState;
+}
+
+export interface KindleSendState {
+  /** Chapter ids sent (most recent last, capped). */
+  sentIds: string[];
+  /** Highest chapter number sent, the baseline for "new chapters". */
+  lastNumber?: number;
+  /** Scanlation groups of the last sent chapter, preferred for the next ones. */
+  lastGroups?: string[];
+  lastSentAt?: number;
 }
 
 export interface ReadingProgress extends SyncRecord {

@@ -5,12 +5,15 @@ import { chapterLabel } from '../../core/types';
 import { libraryEntries, progress, ready } from '../../library/store';
 import { checkForUpdates, checking, markUpdatesSeen, unseenCount, updates } from '../../library/updates';
 import { formatDate, t, tn } from '../../i18n';
-import { Cover, EmptyState, errorMessage, toast } from '../ui';
+import { Cover, EmptyState, Icon, errorMessage, toast } from '../ui';
+import { BatchSheet } from '../../kindle/BatchSheet';
 
 type Tab = 'all' | 'favorites' | 'updates';
 
 export default function LibraryPage() {
   const [tab, setTab] = createSignal<Tab>('all');
+  const [batchOpen, setBatchOpen] = createSignal(false);
+  const hasFavorites = () => libraryEntries().some(entry => entry.favorite);
   const entries = createMemo(() => {
     const all = libraryEntries();
     return tab() === 'favorites' ? all.filter(entry => entry.favorite) : all;
@@ -31,7 +34,13 @@ export default function LibraryPage() {
     <section class="page" aria-labelledby="library-heading">
       <header class="page-head">
         <h1 id="library-heading">{t('Library')}</h1>
+        <Show when={hasFavorites()}>
+          <Button type="button" size="sm" onClick={() => setBatchOpen(true)}>
+            <Icon name="send" size={18} /> {t('Send new chapters')}
+          </Button>
+        </Show>
       </header>
+      <BatchSheet open={batchOpen()} onClose={() => setBatchOpen(false)} />
       <div class="tabs" role="tablist" aria-label={t('Library sections')}>
         <For each={[
           { id: 'all' as const, label: t('All') },
