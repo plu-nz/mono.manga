@@ -16,7 +16,9 @@ import { modeLabel } from './MangaPage';
 const CHAPTER_LANGUAGES = ['en', 'pt-br', 'es-la', 'es', 'fr', 'de', 'it', 'ru', 'pl', 'tr', 'id', 'vi', 'th', 'ar', 'uk', 'ja', 'ko', 'zh', 'zh-hk'];
 
 export default function SettingsPage() {
-  const [email, setEmail] = createSignal(settings.kindleEmail ?? '');
+  // Undefined until the user edits, so the field shows the stored address even when settings finish loading after mount.
+  const [draft, setEmail] = createSignal<string>();
+  const email = () => draft() ?? settings.kindleEmail ?? '';
   const [emailError, setEmailError] = createSignal<string>();
   const [busy, setBusy] = createSignal(false);
   const [syncOn, setSyncOn] = createSignal(isSyncEnabled());

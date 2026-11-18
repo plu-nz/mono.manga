@@ -41,4 +41,12 @@ describe('library store', () => {
     expect(store.settings.languages).toEqual(['pt-br']);
     expect(store.effectiveMode('mangadex:abc', 'rtl')).toBe('vertical');
   });
+
+  it('keeps stored settings when a setting is saved before loading finishes', async () => {
+    const { writeSettings } = await import('../storage/db');
+    await writeSettings({ updatedAt: 1, languages: ['pt-br'], defaultMode: 'rtl', dataSaver: false, showMature: false, kindleModel: 'oasis' });
+    const store = await import('./store');
+    await store.updateSettings({ kindleEmail: 'reader@kindle.com' });
+    expect(store.settings).toMatchObject({ languages: ['pt-br'], kindleModel: 'oasis', kindleEmail: 'reader@kindle.com' });
+  });
 });

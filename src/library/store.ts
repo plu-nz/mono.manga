@@ -40,7 +40,14 @@ function changed(): void {
   for (const listener of listeners) listener();
 }
 
-export async function loadLibrary(): Promise<void> {
+let loading: Promise<void> | undefined;
+
+export function loadLibrary(): Promise<void> {
+  loading ??= readAll();
+  return loading;
+}
+
+async function readAll(): Promise<void> {
   const database = await db();
   const [entries, progressEntries, stored] = await Promise.all([
     database.getAll('library'),
@@ -150,6 +157,8 @@ export function isChapterRead(key: MangaKey, chapterId: string): boolean {
 }
 
 export async function updateSettings(patch: Partial<Omit<AppSettings, 'updatedAt'>>): Promise<void> {
+  // Merge into the stored settings, never into defaults shown before loading finished.
+  await loadLibrary();
   const next: AppSettings = { ...settings, ...patch, updatedAt: Date.now() };
   await writeSettings(next);
   setSettingsStore(reconcile(next));
