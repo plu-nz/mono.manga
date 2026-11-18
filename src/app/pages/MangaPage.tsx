@@ -285,11 +285,11 @@ export default function MangaPage() {
                                 <>
                                   <A class="chapter-link" href={readHref(chapter)} {...longPress(() => startSelecting(chapter))}>{body}</A>
                                   <div class="chapter-actions">
-                                    <IconButton icon="send" label={t('Send to Kindle')} onClick={() => sendToKindle([chapter])} />
+                                    <IconButton icon={read() ? 'unread' : 'check'} label={read() ? t('Mark as unread') : t('Mark as read')} pressed={read()} onClick={() => void setRead([chapter], !read())} />
                                     <Show when={loaded().details.provider !== 'local'}>
                                       <IconButton icon="download" label={state()?.status === 'complete' ? t('Saved offline') : t('Save offline')} disabled={Boolean(state()) && state()!.status !== 'error' && state()!.status !== 'partial'} onClick={() => saveOffline([chapter])} />
                                     </Show>
-                                    <IconButton icon={read() ? 'unread' : 'check'} label={read() ? t('Mark as unread') : t('Mark as read')} pressed={read()} onClick={() => void setRead([chapter], !read())} />
+                                    <IconButton icon="send" label={t('Send to Kindle')} onClick={() => sendToKindle([chapter])} />
                                   </div>
                                 </>
                               }>
