@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<meta name="theme-color" content="#0f0f0f" />
+<title>Privacy — Manga — PLUNZ</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #0f0f0f; color: #cdd6f4; font: 16px/1.6 system-ui, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.6rem; margin: 0 0 8px; }
+  h2 { font-size: 1.1rem; margin: 28px 0 8px; }
+  a { color: #f6b6ab; }
+  p, li { color: #bac2de; }
+  code { background: #1c1c1c; padding: 1px 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Privacy</h1>
+  <p>Manga is a PLUNZ app at <code>manga.plu.nz</code>. It works without an account. This page explains what happens to your data.</p>
+
+  <h2>On your device</h2>
+  <p>Your library, favorites, reading progress, settings, offline chapters, imported files, and generated EPUB files are stored only in your browser (IndexedDB). Clearing the site's data or uninstalling the app removes them.</p>
+
+  <h2>Catalog requests</h2>
+  <p>Searches and chapter lists are requested from <a href="https://mangadex.org">MangaDex</a> through a small PLUNZ relay on Cloudflare Workers, because MangaDex does not accept these requests directly from other websites. The relay forwards only the catalog request, does not store it, and does not log your searches. Cloudflare may process your IP address to deliver and protect the service and to apply rate limits. Images are loaded directly from MangaDex servers by your browser. Their <a href="https://mangadex.org/about/privacy">privacy policy</a> applies to those requests.</p>
+
+  <h2>Google (optional)</h2>
+  <p>If you choose to connect a Google account, the app asks for each permission only when a feature needs it:</p>
+  <ul>
+    <li><strong>Your email address</strong> (<code>openid</code>, <code>email</code>) — to show which account is connected, so you can add it to Amazon's approved sender list.</li>
+    <li><strong>Google Drive app data</strong> (<code>drive.appdata</code>) — to keep a copy of your library, progress, and settings in a hidden folder that only this app can read. It cannot see your other Drive files.</li>
+    <li><strong>Send email</strong> (<code>gmail.send</code>) — to send the EPUB files you create to your own Send-to-Kindle address from your Gmail account. The app cannot read, list, or delete your email.</li>
+  </ul>
+  <p>All Google requests go directly from your browser to Google. PLUNZ servers never receive your Google tokens, your synced data, or your files. Access tokens are kept in memory and in your browser's session storage until they expire (about an hour). You can disconnect in Settings, delete the synced copy, or revoke access at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</p>
+  <p>The app's use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements. Google user data is used only to provide the features described above, is not transferred to anyone, is not used for advertising, and is not read by humans.</p>
+
+  <h2>Amazon Kindle</h2>
+  <p>Files you send are delivered by email to the Kindle address you enter, and Amazon processes them under its own terms. Your Kindle address is stored on your device and, if you enable sync, in your Google Drive app data.</p>
+
+  <h2>Content</h2>
+  <p>PLUNZ does not host or store manga. Titles and chapters come from MangaDex and the scanlation groups credited on each chapter, or from files you import yourself. Please support official releases where available.</p>
+
+  <h2>Contact</h2>
+  <p>Questions or requests: open an issue at <a href="https://github.com/plu-nz/mono.manga/issues">github.com/plu-nz/mono.manga</a>.</p>
+  <p><a href="/">Back to Manga</a></p>
+</main>
+</body>
+</html>
