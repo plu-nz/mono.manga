@@ -227,6 +227,8 @@ export const translations: Record<string, readonly [string, string]> = {
   'Recently opened': ['Abertos recentemente', 'Abiertos recientemente'],
   'Clear history': ['Limpar histórico', 'Borrar historial'],
   'Remove “{query}” from history': ['Remover “{query}” do histórico', 'Quitar “{query}” del historial'],
+  'Newest first': ['Mais recentes primeiro', 'Más recientes primero'],
+  'Oldest first': ['Mais antigos primeiro', 'Más antiguos primero'],
   // Publication status values from providers.
   ongoing: ['em andamento', 'en curso'],
   completed: ['concluído', 'completado'],

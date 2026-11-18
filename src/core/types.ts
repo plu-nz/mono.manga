@@ -163,6 +163,8 @@ export interface AppSettings extends SyncRecord {
   kindleModel?: KindleModelId;
   /** Include content rated erotica/pornographic in search. Off by default. */
   showMature: boolean;
+  /** List chapters newest first on title pages. */
+  newestFirst?: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {

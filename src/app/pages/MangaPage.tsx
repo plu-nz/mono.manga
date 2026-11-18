@@ -13,7 +13,9 @@ import {
   progress,
   setChaptersRead,
   setTitleMode,
+  settings,
   toggleFavorite,
+  updateSettings,
 } from '../../library/store';
 import { downloadStates, queueDownloads } from '../../library/download-manager';
 import { chapterKey } from '../../storage/db';
@@ -39,7 +41,11 @@ export default function MangaPage() {
   const saved = () => isInLibrary(key());
   const favorite = () => Boolean(library[key()]?.favorite && saved());
   const mode = (): ReadingMode => (data() ? effectiveMode(key(), data()!.details.defaultMode) : 'ltr');
-  const groups = createMemo(() => groupByVolume(data()?.chapters ?? []));
+  // Reading order is kept everywhere else (next chapter, Kindle files); only the list display flips.
+  const groups = createMemo(() => {
+    const chapters = data()?.chapters ?? [];
+    return groupByVolume(settings.newestFirst ? [...chapters].reverse() : chapters);
+  });
   const selectedChapters = createMemo(() => (data()?.chapters ?? []).filter(chapter => selected().has(chapter.id)));
   const continueChapter = createMemo(() => {
     const chapters = data()?.chapters ?? [];
@@ -140,7 +146,12 @@ export default function MangaPage() {
             <div class="section-head">
               <h2>{tn(loaded().chapters.length, '{count} chapter', '{count} chapters')}</h2>
               <Show when={loaded().chapters.length}>
-                <Button type="button" size="sm" variant="ghost" onClick={() => (selecting() ? stopSelecting() : setSelecting(true))}>{selecting() ? t('Done') : t('Select')}</Button>
+                <div class="head-actions">
+                  <Button type="button" size="sm" variant="ghost" aria-pressed={Boolean(settings.newestFirst)} onClick={() => void updateSettings({ newestFirst: !settings.newestFirst })}>
+                    <Icon name="sort" size={18} /> {settings.newestFirst ? t('Newest first') : t('Oldest first')}
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => (selecting() ? stopSelecting() : setSelecting(true))}>{selecting() ? t('Done') : t('Select')}</Button>
+                </div>
               </Show>
             </div>
 

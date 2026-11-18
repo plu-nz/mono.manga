@@ -113,7 +113,7 @@ body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
 .tags li { padding: 2px 8px; border: 1px solid var(--plz-line); font-size: .75rem; color: var(--plz-muted); }
 .field-row { display: flex; flex-direction: column; gap: 6px; }
 .field-row label { font-size: .8125rem; font-weight: 700; }
-.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px solid var(--plz-line); }
+.section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding-top: 8px; border-top: 1px solid var(--plz-line); }
 .volume { display: flex; flex-direction: column; }
 .volume-head { display: flex; align-items: center; justify-content: space-between; min-height: 44px; position: sticky; top: 0; z-index: 2; background: var(--plz-bg); }
 .volume-head h3 { font-size: .8125rem; text-transform: uppercase; letter-spacing: .06em; color: var(--plz-muted); }
