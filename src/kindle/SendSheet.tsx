@@ -1,12 +1,12 @@
 import { createMemo, createSignal, For, onMount, Show } from 'solid-js';
 import { A } from '@solidjs/router';
-import { Button } from '@plunz/storybook';
+import { Button, TextField } from '@plunz/storybook';
 import type { ChapterSummary, MangaDetails, ReadingMode } from '../core/types';
 import { getKindleProfile } from './profiles';
-import { buildEpubs, downloadBlob, planExports, type BuildProgress, type Grouping } from './send';
+import { buildEpubs, downloadBlob, isKindleAddress, planExports, type BuildProgress, type Grouping } from './send';
 import { getAccessToken, isGoogleConfigured, maxAttachmentBytes, preloadGoogle, sendFileByEmail } from '../google';
 import { DEFAULT_MAX_PART_BYTES } from '../converter';
-import { settings } from '../library/store';
+import { settings, updateSettings } from '../library/store';
 import { formatBytes, t, tn } from '../i18n';
 import { ProgressBar, Sheet, errorMessage, toast } from '../app/ui';
 
@@ -33,6 +33,18 @@ export function SendSheet(props: {
   const pageTotal = createMemo(() => props.chapters.reduce((sum, chapter) => sum + (chapter.externalUrl ? 0 : chapter.pages), 0));
   const profile = createMemo(() => getKindleProfile(settings.kindleModel));
   const canEmail = () => isGoogleConfigured() && Boolean(settings.kindleEmail);
+  const [emailDraft, setEmailDraft] = createSignal('');
+  const [emailError, setEmailError] = createSignal<string>();
+
+  function saveKindleEmail() {
+    const value = emailDraft().trim();
+    if (!isKindleAddress(value)) {
+      setEmailError(t('Use the address ending in @kindle.com shown in your Amazon account.'));
+      return;
+    }
+    setEmailError(undefined);
+    void updateSettings({ kindleEmail: value });
+  }
   const busy = () => phase() === 'converting' || phase() === 'sending';
 
   function close() {
@@ -153,11 +165,25 @@ export function SendSheet(props: {
         </Show>
 
         <Show when={!canEmail() && phase() !== 'done'}>
-          <p class="hint">
-            {isGoogleConfigured()
-              ? t('Add your Kindle email in Settings to send files directly. You can always download the EPUB and use Send to Kindle from Amazon.')
-              : t('Direct sending is not available on this site yet. Download the EPUB and use Send to Kindle from Amazon.')}
-          </p>
+          <Show when={isGoogleConfigured()} fallback={
+            <p class="hint">{t('Direct sending is not available in this version. Reload the app to update, or download the EPUB and use Send to Kindle from Amazon.')}</p>
+          }>
+            <form class="inline-form" onSubmit={event => { event.preventDefault(); saveKindleEmail(); }}>
+              <TextField
+                id="sheet-kindle-email"
+                label={t('Send-to-Kindle email')}
+                type="email"
+                inputmode="email"
+                autocomplete="off"
+                placeholder="name_123@kindle.com"
+                value={emailDraft()}
+                error={emailError()}
+                hint={t('Find it in Amazon under Preferences → Personal Document Settings.')}
+                onInput={event => setEmailDraft(event.currentTarget.value)}
+              />
+              <Button type="submit" variant="outline">{t('Save')}</Button>
+            </form>
+          </Show>
         </Show>
 
         <div class="sheet-actions">

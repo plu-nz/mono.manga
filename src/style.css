@@ -138,6 +138,7 @@ label.chapter-link input { width: 22px; height: 22px; accent-color: var(--plz-ac
 .choice-group legend { font-weight: 700; font-size: .8125rem; margin-bottom: 4px; }
 .choice { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
 .choice input { width: 20px; height: 20px; accent-color: var(--plz-accent); }
+.inline-form { display: flex; flex-direction: column; gap: 8px; }
 .file-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: .8125rem; }
 .file-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; overflow-wrap: anywhere; }
 .progress { display: flex; flex-direction: column; gap: 6px; }

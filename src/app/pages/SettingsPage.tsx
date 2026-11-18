@@ -118,7 +118,14 @@ export default function SettingsPage() {
           placeholder="name_123@kindle.com"
           value={email()}
           error={emailError()}
-          onInput={event => setEmail(event.currentTarget.value)}
+          onInput={event => {
+            setEmail(event.currentTarget.value);
+            // Save as soon as the address is valid, so leaving the screen never loses it.
+            if (isKindleAddress(event.currentTarget.value) && event.currentTarget.value.trim() !== settings.kindleEmail) {
+              setEmailError(undefined);
+              void updateSettings({ kindleEmail: event.currentTarget.value.trim() });
+            }
+          }}
           onChange={saveEmail}
         />
         <details class="help">
