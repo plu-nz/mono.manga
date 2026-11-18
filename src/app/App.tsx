@@ -3,7 +3,7 @@ import { A, Route, Router, useLocation } from '@solidjs/router';
 import { Theme, Button } from '@plunz/storybook';
 import { useRegisterSW } from 'virtual:pwa-register/solid';
 import { loadLibrary } from '../library/store';
-import { totalNewChapters } from '../library/new-chapters';
+import { refreshNewChapters, totalNewChapters } from '../library/new-chapters';
 import { loadDownloadStates } from '../library/download-manager';
 import { initSync, syncStatus } from './sync';
 import { t } from '../i18n';
@@ -16,9 +16,9 @@ const ReaderPage = lazy(() => import('./pages/ReaderPage'));
 const DownloadsPage = lazy(() => import('./pages/DownloadsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
-function NavLink(props: { href: string; icon: IconName; label: string; badge?: number; end?: boolean }) {
+function NavLink(props: { href: string; icon: IconName; label: string; badge?: number; end?: boolean; onClick?: () => void }) {
   return (
-    <A href={props.href} end={props.end} class="nav-link" activeClass="active">
+    <A href={props.href} end={props.end} class="nav-link" activeClass="active" onClick={() => props.onClick?.()}>
       <span class="nav-icon">
         <Icon name={props.icon} />
         <Show when={props.badge}><span class="nav-badge" aria-hidden="true">{props.badge}</span></Show>
@@ -46,7 +46,15 @@ function Shell(props: { children?: JSX.Element }) {
       </Show>
       <Show when={!inReader()}>
         <nav class="bottom-nav" aria-label={t('Main')}>
-          <NavLink href="/" end icon="library" label={t('Library')} badge={totalNewChapters()} />
+          <NavLink
+            href="/"
+            end
+            icon="library"
+            label={t('Library')}
+            badge={totalNewChapters()}
+            // Every tap on Library also checks favorites for new chapters.
+            onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); void refreshNewChapters({ force: true }); }}
+          />
           <NavLink href="/search" icon="search" label={t('Search')} />
           <NavLink href="/downloads" icon="download" label={t('Downloads')} />
           <NavLink href="/settings" icon={syncStatus() === 'reconnect' ? 'sync' : 'settings'} label={t('Settings')} />
