@@ -74,10 +74,17 @@ export default function MangaPage() {
     setSelected(next);
   }
 
+  /** Only chapters hosted elsewhere cannot be selected. */
+  const selectable = (chapters: ChapterSummary[]) => chapters.filter(chapter => !chapter.externalUrl);
+  const allSelected = (chapters: ChapterSummary[]) => {
+    const items = selectable(chapters);
+    return items.length > 0 && items.every(chapter => selected().has(chapter.id));
+  };
+
   function toggleGroup(chapters: ChapterSummary[]) {
     const next = new Set(selected());
-    const all = chapters.every(chapter => next.has(chapter.id));
-    for (const chapter of chapters) all ? next.delete(chapter.id) : next.add(chapter.id);
+    const all = allSelected(chapters);
+    for (const chapter of selectable(chapters)) all ? next.delete(chapter.id) : next.add(chapter.id);
     setSelected(next);
   }
 
@@ -187,7 +194,7 @@ export default function MangaPage() {
                     <h3>{group.volume ? t('Volume {volume}', { volume: group.volume }) : t('No volume')}</h3>
                     <Show when={selecting()}>
                       <button type="button" class="text-button" onClick={() => toggleGroup(group.chapters)}>
-                        {group.chapters.every(chapter => selected().has(chapter.id)) ? t('Clear volume') : t('Select volume')}
+                        {allSelected(group.chapters) ? t('Clear volume') : t('Select volume')}
                       </button>
                     </Show>
                   </div>
@@ -245,7 +252,12 @@ export default function MangaPage() {
 
             <Show when={selecting()}>
               <div class="selection-bar" role="toolbar" aria-label={t('Selected chapters')}>
-                <span>{tn(selectedChapters().length, '{count} selected', '{count} selected')}</span>
+                <div class="selection-count">
+                  <span>{tn(selectedChapters().length, '{count} selected', '{count} selected')}</span>
+                  <button type="button" class="text-button" onClick={() => toggleGroup(loaded().chapters)}>
+                    {allSelected(loaded().chapters) ? t('Clear all') : t('Select all')}
+                  </button>
+                </div>
                 <div class="selection-actions">
                   <IconButton icon="check" label={t('Mark as read')} disabled={!selectedChapters().length} onClick={() => void setChaptersRead(key(), selectedChapters().map(chapter => chapter.id), true).then(() => { reportReadToTracker(data()!.details, data()!.chapters); stopSelecting(); })} />
                   <IconButton icon="unread" label={t('Mark as unread')} disabled={!selectedChapters().length} onClick={() => void setChaptersRead(key(), selectedChapters().map(chapter => chapter.id), false).then(stopSelecting)} />
