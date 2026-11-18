@@ -1,109 +1,78 @@
 import { createMemo, createSignal, For, onMount, Show } from 'solid-js';
 import { A } from '@solidjs/router';
 import { Button } from '@plunz/storybook';
-import { chapterLabel } from '../../core/types';
 import { libraryEntries, progress, ready } from '../../library/store';
-import { checkForUpdates, checking, markUpdatesSeen, unseenCount, updates } from '../../library/updates';
-import { formatDate, t, tn } from '../../i18n';
-import { Cover, EmptyState, Icon, errorMessage, toast } from '../ui';
+import { checkingNewChapters, newChaptersFor, refreshNewChapters, totalNewChapters } from '../../library/new-chapters';
 import { BatchSheet } from '../../kindle/BatchSheet';
+import { t, tn } from '../../i18n';
+import { Cover, EmptyState, Icon, IconButton } from '../ui';
 
-type Tab = 'all' | 'favorites' | 'updates';
-
+/** Favorites, each with its count of new chapters, and one tap to send them all to the Kindle. */
 export default function LibraryPage() {
-  const [tab, setTab] = createSignal<Tab>('all');
   const [batchOpen, setBatchOpen] = createSignal(false);
-  const hasFavorites = () => libraryEntries().some(entry => entry.favorite);
-  const entries = createMemo(() => {
-    const all = libraryEntries();
-    return tab() === 'favorites' ? all.filter(entry => entry.favorite) : all;
-  });
+  const favorites = createMemo(() =>
+    libraryEntries()
+      .filter(entry => entry.favorite)
+      // Titles with new chapters first, then the most recently changed.
+      .sort((a, b) => newChaptersFor(b.key).length - newChaptersFor(a.key).length || b.updatedAt - a.updatedAt),
+  );
 
-  onMount(() => { void checkForUpdates().catch(() => undefined); });
-
-  async function refresh() {
-    try {
-      const found = await checkForUpdates({ force: true });
-      toast(found ? tn(found, '{count} new chapter.', '{count} new chapters.') : t('No new chapters.'));
-    } catch (error) {
-      toast(errorMessage(error));
-    }
-  }
+  onMount(() => { void refreshNewChapters(); });
 
   return (
     <section class="page" aria-labelledby="library-heading">
       <header class="page-head">
-        <h1 id="library-heading">{t('Library')}</h1>
-        <Show when={hasFavorites()}>
-          <Button type="button" size="sm" onClick={() => setBatchOpen(true)}>
-            <Icon name="send" size={18} /> {t('Send new chapters')}
-          </Button>
+        <h1 id="library-heading">{t('Favorites')}</h1>
+        <Show when={favorites().length}>
+          <div class="head-actions">
+            <IconButton icon="sync" class={checkingNewChapters() ? 'spinning' : ''} label={t('Check for new chapters')} disabled={checkingNewChapters()} onClick={() => void refreshNewChapters({ force: true })} />
+            <Button type="button" size="sm" onClick={() => setBatchOpen(true)}>
+              <Icon name="send" size={18} /> {t('Send new chapters')}
+            </Button>
+          </div>
         </Show>
       </header>
-      <BatchSheet open={batchOpen()} onClose={() => setBatchOpen(false)} />
-      <div class="tabs" role="tablist" aria-label={t('Library sections')}>
-        <For each={[
-          { id: 'all' as const, label: t('All') },
-          { id: 'favorites' as const, label: t('Favorites') },
-          { id: 'updates' as const, label: unseenCount() ? `${t('Updates')} (${unseenCount()})` : t('Updates') },
-        ]}>
-          {item => (
-            <button type="button" role="tab" class="tab" aria-selected={tab() === item.id} onClick={() => setTab(item.id)}>{item.label}</button>
-          )}
-        </For>
-      </div>
+      <BatchSheet open={batchOpen()} onClose={() => { setBatchOpen(false); void refreshNewChapters({ force: true }); }} />
 
-      <Show when={tab() !== 'updates'} fallback={
-        <div class="stack">
-          <div class="row-between">
-            <Button type="button" size="sm" variant="outline" disabled={checking()} onClick={() => void refresh()}>{checking() ? t('Checking…') : t('Check for new chapters')}</Button>
-            <Show when={unseenCount()}><button type="button" class="text-button" onClick={() => void markUpdatesSeen()}>{t('Mark all as seen')}</button></Show>
-          </div>
-          <Show when={updates().length} fallback={<EmptyState icon="bell" title={t('No new chapters yet')}><p>{t('New chapters of titles in your library appear here. The app checks when you open it.')}</p></EmptyState>}>
-            <ul class="updates">
-              <For each={updates()}>
-                {item => (
-                  <li classList={{ unseen: !item.seen }}>
-                    <A href={`/read/${item.chapter.provider}/${encodeURIComponent(item.chapter.mangaId)}/${encodeURIComponent(item.chapter.id)}`}>
-                      <strong>{item.mangaTitle}</strong>
-                      <span>{chapterLabel(item.chapter)}</span>
-                      <span class="muted small">{[item.chapter.groups?.join(', '), formatDate(item.chapter.publishedAt)].filter(Boolean).join(' · ')}</span>
-                    </A>
-                  </li>
-                )}
-              </For>
-            </ul>
-          </Show>
-        </div>
-      }>
-        <Show when={ready() && entries().length === 0}>
-          <EmptyState icon="library" title={tab() === 'favorites' ? t('No favorites yet') : t('Your library is empty')}>
-            <p>{tab() === 'favorites' ? t('Tap the star on a title to keep it here.') : t('Search for a title or import your own files to start reading.')}</p>
-            <A class="plz-button plz-button--solid plz-button--md" href="/search">{t('Find manga')}</A>
-          </EmptyState>
-        </Show>
-        <ul class="grid">
-          <For each={entries()}>
-            {entry => {
-              const current = () => progress[entry.key];
-              return (
-                <li>
-                  <A class="tile" href={`/manga/${entry.provider}/${encodeURIComponent(entry.mangaId)}`}>
-                    <Cover url={entry.coverUrl} title={entry.title} />
-                    <span class="tile-title">{entry.title}</span>
-                    <Show when={current() && !current()!.deleted && current()!.chapterLabel}>
-                      <span class="tile-meta">{current()!.chapterLabel}</span>
-                    </Show>
-                    <Show when={updates().some(item => !item.seen && item.mangaKey === entry.key)}>
-                      <span class="tile-badge">{t('New')}</span>
-                    </Show>
-                  </A>
-                </li>
-              );
-            }}
-          </For>
-        </ul>
+      <Show when={favorites().length}>
+        <p class="muted small" role="status">
+          {checkingNewChapters()
+            ? t('Checking for new chapters…')
+            : totalNewChapters()
+              ? tn(totalNewChapters(), '{count} new chapter in your favorites.', '{count} new chapters in your favorites.')
+              : t('No new chapters.')}
+        </p>
       </Show>
+
+      <Show when={ready() && favorites().length === 0}>
+        <EmptyState icon="star" title={t('No favorites yet')}>
+          <p>{t('Tap the star on a title to follow it here. New chapters are counted each time you open this screen.')}</p>
+          <A class="plz-button plz-button--solid plz-button--md" href="/search">{t('Find manga')}</A>
+        </EmptyState>
+      </Show>
+
+      <ul class="grid">
+        <For each={favorites()}>
+          {entry => {
+            const current = () => progress[entry.key];
+            const count = () => newChaptersFor(entry.key).length;
+            return (
+              <li>
+                <A class="tile" href={`/manga/${entry.provider}/${encodeURIComponent(entry.mangaId)}`}>
+                  <Cover url={entry.coverUrl} title={entry.title} />
+                  <span class="tile-title">{entry.title}</span>
+                  <Show when={current() && !current()!.deleted && current()!.chapterLabel}>
+                    <span class="tile-meta">{current()!.chapterLabel}</span>
+                  </Show>
+                  <Show when={count()}>
+                    <span class="tile-badge" aria-label={tn(count(), '{count} new chapter', '{count} new chapters')}>{count()}</span>
+                  </Show>
+                </A>
+              </li>
+            );
+          }}
+        </For>
+      </ul>
     </section>
   );
 }

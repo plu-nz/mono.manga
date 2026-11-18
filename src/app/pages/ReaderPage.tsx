@@ -4,7 +4,6 @@ import { Button } from '@plunz/storybook';
 import { chapterLabel, mangaKey, type ReadingMode } from '../../core/types';
 import { adjacentChapter, loadManga } from '../../library/manga';
 import { effectiveMode, progress, saveProgress, settings } from '../../library/store';
-import { markUpdatesSeen } from '../../library/updates';
 import { loadChapterPages, type PageHandle } from '../../reader/pages';
 import { isProviderId } from '../../providers';
 import { t } from '../../i18n';
@@ -63,7 +62,6 @@ export default function ReaderPage() {
     const start = saved && !saved.deleted && saved.chapterId === chapter()?.id ? Math.min(saved.page, list.length - 1) : 0;
     setPage(Math.max(0, start));
     if (mode() === 'vertical' && start > 0) requestAnimationFrame(() => document.getElementById(`page-${start}`)?.scrollIntoView());
-    void markUpdatesSeen(item => item.chapter.id === chapter()?.id);
   }));
 
   onCleanup(() => pages()?.forEach(handle => handle.release()));

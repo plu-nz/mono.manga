@@ -3,7 +3,7 @@ import { A, Route, Router, useLocation } from '@solidjs/router';
 import { Theme, Button } from '@plunz/storybook';
 import { useRegisterSW } from 'virtual:pwa-register/solid';
 import { loadLibrary } from '../library/store';
-import { loadUpdates, unseenCount } from '../library/updates';
+import { totalNewChapters } from '../library/new-chapters';
 import { loadDownloadStates } from '../library/download-manager';
 import { initSync, syncStatus } from './sync';
 import { t } from '../i18n';
@@ -46,7 +46,7 @@ function Shell(props: { children?: JSX.Element }) {
       </Show>
       <Show when={!inReader()}>
         <nav class="bottom-nav" aria-label={t('Main')}>
-          <NavLink href="/" end icon="library" label={t('Library')} badge={unseenCount()} />
+          <NavLink href="/" end icon="star" label={t('Favorites')} badge={totalNewChapters()} />
           <NavLink href="/search" icon="search" label={t('Search')} />
           <NavLink href="/downloads" icon="download" label={t('Downloads')} />
           <NavLink href="/settings" icon={syncStatus() === 'reconnect' ? 'sync' : 'settings'} label={t('Settings')} />
@@ -60,7 +60,6 @@ function Shell(props: { children?: JSX.Element }) {
 export default function App() {
   onMount(() => {
     void loadLibrary().then(() => initSync());
-    void loadUpdates();
     void loadDownloadStates();
   });
   return (

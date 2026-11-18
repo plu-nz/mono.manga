@@ -4,14 +4,12 @@ import { Button } from '@plunz/storybook';
 import { chapterLabel, mangaKey, type ChapterSummary, type ReadingMode } from '../../core/types';
 import { groupByVolume, loadManga } from '../../library/manga';
 import {
-  addToLibrary,
   effectiveMode,
   isChapterRead,
   isInLibrary,
   isSentToKindle,
   library,
   progress,
-  removeFromLibrary,
   setChaptersRead,
   setTitleMode,
   toggleFavorite,
@@ -79,11 +77,6 @@ export default function MangaPage() {
     <section class="page manga-page">
       <header class="page-head with-back">
         <IconButton icon="back" label={t('Back')} onClick={() => (history.length > 1 ? history.back() : navigate('/'))} />
-        <Show when={data()}>
-          <div class="head-actions">
-            <IconButton icon={favorite() ? 'star' : 'starOutline'} label={favorite() ? t('Remove from favorites') : t('Add to favorites')} pressed={favorite()} class={favorite() ? 'is-favorite' : ''} onClick={() => void toggleFavorite(data()!.details)} />
-          </div>
-        </Show>
       </header>
 
       <Show when={data.error}>
@@ -117,8 +110,8 @@ export default function MangaPage() {
                   </A>
                 )}
               </Show>
-              <Button type="button" variant={saved() ? 'ghost' : 'outline'} onClick={() => void (saved() ? removeFromLibrary(key()) : addToLibrary(loaded().details).then(() => toast(t('Added to your library.'))))}>
-                <Icon name={saved() ? 'check' : 'plus'} size={18} /> {saved() ? t('In library') : t('Add to library')}
+              <Button type="button" variant="outline" class={favorite() ? 'is-favorite' : ''} aria-pressed={favorite()} onClick={() => void toggleFavorite(loaded().details).then(() => { if (favorite()) toast(t('Added to favorites. New chapters will be counted on the Favorites screen.')); })}>
+                <Icon name={favorite() ? 'star' : 'starOutline'} size={18} /> {favorite() ? t('Favorite') : t('Add to favorites')}
               </Button>
             </div>
 
@@ -135,14 +128,13 @@ export default function MangaPage() {
 
             <div class="field-row">
               <label for="reading-mode">{t('Reading mode')}</label>
-              <select id="reading-mode" value={library[key()]?.mode ?? ''} disabled={!saved()} onChange={event => void setTitleMode(key(), (event.currentTarget.value || undefined) as ReadingMode | undefined)}>
+              <select id="reading-mode" value={library[key()]?.mode ?? ''} onChange={event => void setTitleMode(loaded().details, (event.currentTarget.value || undefined) as ReadingMode | undefined)}>
                 <option value="">{t('Automatic ({mode})', { mode: modeLabel(mode()) })}</option>
                 <option value="rtl">{modeLabel('rtl')}</option>
                 <option value="ltr">{modeLabel('ltr')}</option>
                 <option value="vertical">{modeLabel('vertical')}</option>
               </select>
             </div>
-            <Show when={!saved()}><p class="hint">{t('Add the title to your library to choose its reading mode.')}</p></Show>
 
             <div class="section-head">
               <h2>{tn(loaded().chapters.length, '{count} chapter', '{count} chapters')}</h2>

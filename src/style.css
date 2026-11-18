@@ -44,7 +44,10 @@ body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
 .icon-button { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: var(--plz-radius); background: transparent; color: var(--plz-text); cursor: pointer; }
 .icon-button:hover:not(:disabled) { background: var(--plz-line); }
 .icon-button:disabled { opacity: .35; cursor: not-allowed; }
-.icon-button.is-favorite { color: var(--plz-orange); }
+.icon-button.is-favorite, .plz-button.is-favorite { color: var(--plz-orange); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.icon-button.spinning .icon { animation: spin 1s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .icon-button.spinning .icon { animation: none; } }
 .icon-button.flip .icon { transform: scaleX(-1); }
 .text-button { min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--plz-accent); font-weight: 700; cursor: pointer; text-align: left; }
 .text-button.danger { color: var(--plz-red); }

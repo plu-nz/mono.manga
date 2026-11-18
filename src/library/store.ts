@@ -108,17 +108,22 @@ export async function removeFromLibrary(key: MangaKey): Promise<void> {
   await putEntry({ ...entry, favorite: false, deleted: true, updatedAt: Date.now() });
 }
 
-export async function toggleFavorite(details: MangaDetails): Promise<void> {
+export async function setFavorite(details: MangaDetails, favorite: boolean): Promise<void> {
   const key = mangaKey(details.provider, details.id);
   if (!isInLibrary(key)) await addToLibrary(details);
-  const entry = library[key];
-  await putEntry({ ...entry, favorite: !entry.favorite, updatedAt: Date.now() });
+  await putEntry({ ...library[key], favorite, updatedAt: Date.now() });
 }
 
-export async function setTitleMode(key: MangaKey, mode: ReadingMode | undefined): Promise<void> {
-  const entry = library[key];
-  if (!entry || entry.deleted) return;
-  await putEntry({ ...entry, mode, updatedAt: Date.now() });
+export async function toggleFavorite(details: MangaDetails): Promise<void> {
+  const key = mangaKey(details.provider, details.id);
+  await setFavorite(details, !(isInLibrary(key) && library[key].favorite));
+}
+
+/** Per-title reading mode; keeps a (non-favorite) entry so the choice survives and syncs. */
+export async function setTitleMode(details: MangaDetails, mode: ReadingMode | undefined): Promise<void> {
+  const key = mangaKey(details.provider, details.id);
+  if (!isInLibrary(key)) await addToLibrary(details);
+  await putEntry({ ...library[key], mode, updatedAt: Date.now() });
 }
 
 export async function saveProgress(input: {

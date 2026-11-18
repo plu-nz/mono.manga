@@ -4,7 +4,7 @@ import { Button } from '@plunz/storybook';
 import type { MangaSummary } from '../../core/types';
 import { getProvider } from '../../providers';
 import { importLocalFiles } from '../../providers/local';
-import { addToLibrary, settings } from '../../library/store';
+import { setFavorite, settings } from '../../library/store';
 import { t, tn } from '../../i18n';
 import { Cover, EmptyState, Icon, errorMessage, toast } from '../ui';
 
@@ -59,7 +59,8 @@ export default function SearchPage() {
     setImporting(true);
     try {
       const results = await importLocalFiles([...files]);
-      for (const result of results) await addToLibrary(result.details);
+      // Imported titles join the favorites so they are easy to find again.
+      for (const result of results) await setFavorite(result.details, true);
       const pages = results.reduce((sum, result) => sum + result.pages, 0);
       toast(tn(pages, 'Imported {count} page.', 'Imported {count} pages.'));
       if (results[0]) navigate(`/manga/local/${encodeURIComponent(results[0].details.id)}`);
