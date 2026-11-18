@@ -1,4 +1,4 @@
-import { createStore, reconcile } from 'solid-js/store';
+import { createStore, reconcile, unwrap } from 'solid-js/store';
 import { createSignal } from 'solid-js';
 import {
   DEFAULT_SETTINGS,
@@ -159,7 +159,8 @@ export function isChapterRead(key: MangaKey, chapterId: string): boolean {
 export async function updateSettings(patch: Partial<Omit<AppSettings, 'updatedAt'>>): Promise<void> {
   // Merge into the stored settings, never into defaults shown before loading finished.
   await loadLibrary();
-  const next: AppSettings = { ...settings, ...patch, updatedAt: Date.now() };
+  // Store values are proxies, which IndexedDB cannot clone; persist a plain copy.
+  const next: AppSettings = structuredClone({ ...unwrap(settings), ...patch, updatedAt: Date.now() });
   await writeSettings(next);
   setSettingsStore(reconcile(next));
   changed();
