@@ -46,7 +46,7 @@ function Shell(props: { children?: JSX.Element }) {
       </Show>
       <Show when={!inReader()}>
         <nav class="bottom-nav" aria-label={t('Main')}>
-          <NavLink href="/" end icon="star" label={t('Favorites')} badge={totalNewChapters()} />
+          <NavLink href="/" end icon="library" label={t('Library')} badge={totalNewChapters()} />
           <NavLink href="/search" icon="search" label={t('Search')} />
           <NavLink href="/downloads" icon="download" label={t('Downloads')} />
           <NavLink href="/settings" icon={syncStatus() === 'reconnect' ? 'sync' : 'settings'} label={t('Settings')} />

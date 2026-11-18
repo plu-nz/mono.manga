@@ -22,7 +22,7 @@ export default function LibraryPage() {
   return (
     <section class="page" aria-labelledby="library-heading">
       <header class="page-head">
-        <h1 id="library-heading">{t('Favorites')}</h1>
+        <h1 id="library-heading">{t('Library')}</h1>
         <Show when={favorites().length}>
           <div class="head-actions">
             <IconButton icon="sync" class={checkingNewChapters() ? 'spinning' : ''} label={t('Check for new chapters')} disabled={checkingNewChapters()} onClick={() => void refreshNewChapters({ force: true })} />
@@ -39,14 +39,14 @@ export default function LibraryPage() {
           {checkingNewChapters()
             ? t('Checking for new chapters…')
             : totalNewChapters()
-              ? tn(totalNewChapters(), '{count} new chapter in your favorites.', '{count} new chapters in your favorites.')
+              ? tn(totalNewChapters(), '{count} new chapter in your library.', '{count} new chapters in your library.')
               : t('No new chapters.')}
         </p>
       </Show>
 
       <Show when={ready() && favorites().length === 0}>
-        <EmptyState icon="star" title={t('No favorites yet')}>
-          <p>{t('Tap the star on a title to follow it here. New chapters are counted each time you open this screen.')}</p>
+        <EmptyState icon="library" title={t('Your library is empty')}>
+          <p>{t('Tap the star on a title to add it here. New chapters are counted each time you open this screen.')}</p>
           <A class="plz-button plz-button--solid plz-button--md" href="/search">{t('Find manga')}</A>
         </EmptyState>
       </Show>

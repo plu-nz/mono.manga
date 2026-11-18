@@ -1,6 +1,6 @@
 # Screens
 
-- `LibraryPage.tsx`: favorites with a count of new chapters each, and “Send new chapters” to the Kindle.
+- `LibraryPage.tsx`: the Library — starred titles with a count of new chapters each, and “Send new chapters” to the Kindle.
 - `SearchPage.tsx`: MangaDex search and file import.
 - `MangaPage.tsx`: title details, chapter list, selection for offline saving and Kindle.
 - `ReaderPage.tsx`: paged (right-to-left or left-to-right) and vertical reader with progress saving.

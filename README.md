@@ -7,7 +7,7 @@ The interface follows the device language for English, Portuguese, and Spanish a
 ## What it does
 
 - **Catalog:** search [MangaDex](https://mangadex.org) by title, filtered by the chapter languages you read. Import your own CBZ, ZIP, or image files as a second source.
-- **Favorites:** star titles to follow them; the Favorites screen counts each title's new chapters every time it opens. Reading progress is kept per title.
+- **Library:** star titles to add them; the Library counts each title's new chapters every time it opens. Reading progress is kept per title.
 - **Reader:** right-to-left (manga), left-to-right, and vertical (webtoon) modes, chosen per title. Tap zones, swipes, and keyboard work. Chapters can be saved offline.
 - **Kindle:** pick your Kindle model and convert chapters or whole volumes into fixed-layout EPUB 3 files sized for its screen (grayscale except on color models, double-page spreads split, right-to-left order). Send them to your `@kindle.com` address from your own Gmail, or download them. The app remembers what was sent, and **Send new chapters** in the Library delivers every new chapter of your favorites in one tap.
 - **Sync (optional):** with a Google account, library, progress, and settings sync through the hidden Drive `appDataFolder`.

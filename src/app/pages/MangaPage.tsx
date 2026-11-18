@@ -110,7 +110,7 @@ export default function MangaPage() {
                   </A>
                 )}
               </Show>
-              <Button type="button" variant="outline" class={favorite() ? 'is-favorite' : ''} aria-pressed={favorite()} onClick={() => void toggleFavorite(loaded().details).then(() => { if (favorite()) toast(t('Added to favorites. New chapters will be counted on the Favorites screen.')); })}>
+              <Button type="button" variant="outline" class={favorite() ? 'is-favorite' : ''} aria-pressed={favorite()} onClick={() => void toggleFavorite(loaded().details).then(() => { if (favorite()) toast(t('Added to your library. New chapters will be counted there.')); })}>
                 <Icon name={favorite() ? 'star' : 'starOutline'} size={18} /> {favorite() ? t('Favorite') : t('Add to favorites')}
               </Button>
             </div>

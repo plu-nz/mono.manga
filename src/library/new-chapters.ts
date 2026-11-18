@@ -3,7 +3,7 @@ import { createSignal } from 'solid-js';
 import type { ChapterSummary, MangaKey } from '../core/types';
 import { pickNewChapters, baselineNumber } from '../kindle/auto';
 import { loadManga } from './manga';
-import { library, libraryEntries, progress, settings } from './store';
+import { library, libraryEntries, loadLibrary, progress, settings } from './store';
 
 /**
  * New chapters of each favorite, refreshed when the Library opens. Counts are
@@ -40,6 +40,8 @@ export function totalNewChapters(): number {
 
 export async function refreshNewChapters(options: { force?: boolean } = {}): Promise<void> {
   if (checking()) return;
+  // The Favorites screen can mount before the library finishes loading on a cold start.
+  await loadLibrary();
   const now = Date.now();
   const due = libraryEntries().filter(entry => entry.favorite && (options.force || !lists[entry.key] || now - lists[entry.key].checkedAt > FRESH_FOR));
   if (!due.length) return;
