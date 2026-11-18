@@ -151,7 +151,6 @@ label.chapter-link input { width: 22px; height: 22px; accent-color: var(--plz-ac
 .batch-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--plz-line); }
 .batch-list li > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .batch-list li.active { border-left: 3px solid var(--plz-accent); padding-left: 10px; }
-.chapter-state.sent { color: var(--plz-blue); }
 .page-head .plz-button { flex: none; }
 .inline-form { display: flex; flex-direction: column; gap: 8px; }
 .file-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: .8125rem; }
@@ -242,3 +241,4 @@ label.chapter-link input { width: 22px; height: 22px; accent-color: var(--plz-ac
 .volume-toggle[aria-expanded='false'] .volume-chevron { transform: rotate(-90deg); }
 .volume-count { font-weight: 400; opacity: .7; }
 @media (prefers-reduced-motion: reduce) { .volume-chevron { transition: none; } }
+.chapter-actions .icon-button.is-done { color: var(--plz-blue); }

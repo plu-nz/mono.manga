@@ -262,9 +262,6 @@ export default function MangaPage() {
                             <span class="chapter-meta">
                               {[chapter.groups?.join(', '), languageName(chapter.language), formatDate(chapter.publishedAt)].filter(Boolean).join(' · ')}
                             </span>
-                            <Show when={!state() && isSentToKindle(key(), chapter.id)}>
-                              <span class="chapter-state sent">{t('On Kindle')}</span>
-                            </Show>
                             <Show when={state()}>
                               {current => (
                                 <span class="chapter-state">
@@ -289,7 +286,7 @@ export default function MangaPage() {
                                     <Show when={loaded().details.provider !== 'local'}>
                                       <IconButton icon="download" label={state()?.status === 'complete' ? t('Saved offline') : t('Save offline')} disabled={Boolean(state()) && state()!.status !== 'error' && state()!.status !== 'partial'} onClick={() => saveOffline([chapter])} />
                                     </Show>
-                                    <IconButton icon="send" label={t('Send to Kindle')} onClick={() => sendToKindle([chapter])} />
+                                    <IconButton icon="send" class={isSentToKindle(key(), chapter.id) ? 'is-done' : ''} label={isSentToKindle(key(), chapter.id) ? t('On Kindle · send again') : t('Send to Kindle')} onClick={() => sendToKindle([chapter])} />
                                   </div>
                                 </>
                               }>
