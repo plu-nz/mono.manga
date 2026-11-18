@@ -4,7 +4,7 @@
  * converter, and synchronization.
  */
 
-export type ProviderId = 'mangadex' | 'local';
+export type ProviderId = 'mangadex' | 'local' | 'weebcentral';
 
 /** How pages advance. `vertical` is continuous top-to-bottom scrolling. */
 export type ReadingMode = 'ltr' | 'rtl' | 'vertical';
@@ -62,6 +62,11 @@ export interface ChapterSummary {
   groups?: string[];
   /** Hosted elsewhere (official publisher); cannot be read or converted here. */
   externalUrl?: string;
+  /**
+   * Provider that serves the pages when it differs from `provider`: a chapter
+   * filled in from an extra source keeps the title's provider and id.
+   */
+  source?: ProviderId;
 }
 
 export interface PageRef {
@@ -129,6 +134,13 @@ export interface LibraryEntry extends SyncRecord {
   addedAt: number;
   /** What was already delivered to the user's Kindle, so only new chapters are sent next time. */
   kindle?: KindleSendState;
+  /** Extra sources linked to fill chapters the title's provider lacks. */
+  sources?: { weebcentral?: SourceLink };
+}
+
+export interface SourceLink {
+  id: string;
+  title: string;
 }
 
 export interface KindleSendState {

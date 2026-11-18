@@ -12,6 +12,7 @@ import {
   type MangaKey,
   type ReadingMode,
   type ReadingProgress,
+  type SourceLink,
   type SyncRecord,
 } from '../core/types';
 import { db, readSettings, writeSettings } from '../storage/db';
@@ -126,6 +127,17 @@ export async function setTitleMode(details: MangaDetails, mode: ReadingMode | un
   const key = mangaKey(details.provider, details.id);
   if (!isInLibrary(key)) await addToLibrary(details);
   await putEntry({ ...library[key], mode, updatedAt: Date.now() });
+}
+
+/** Link (or unlink) an extra source that fills chapters missing from the title's provider. */
+export async function setSourceLink(details: MangaDetails, link: SourceLink | undefined): Promise<void> {
+  const key = mangaKey(details.provider, details.id);
+  if (!isInLibrary(key)) await addToLibrary(details);
+  const current = unwrap(library[key]);
+  const sources = { ...current.sources };
+  if (link) sources.weebcentral = { id: link.id, title: link.title };
+  else delete sources.weebcentral;
+  await putEntry({ ...current, sources: Object.keys(sources).length ? sources : undefined, updatedAt: Date.now() });
 }
 
 export async function saveProgress(input: {

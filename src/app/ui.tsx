@@ -163,6 +163,8 @@ export function errorMessage(error: unknown): string {
     case 'popup_blocked': return t('The Google window was blocked. Allow pop-ups and try again.');
     case 'popup_closed': return t('The Google window was closed before finishing.');
     case 'interaction_required': return t('Reconnect your Google account to continue.');
+    case 'not_authorized': return t('This Google account is not authorized for extra sources.');
+    case 'unauthorized': return t('Unlock extra sources again in Settings.');
     case 'tracker_auth': return t('Reconnect AniList to keep tracking your reading.');
     case 'access_denied': return t('Google access was not granted.');
     case 'too_large': return t('The file is too large to email. Download it instead.');

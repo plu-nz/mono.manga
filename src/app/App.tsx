@@ -5,6 +5,7 @@ import { useRegisterSW } from 'virtual:pwa-register/solid';
 import { loadLibrary } from '../library/store';
 import { refreshNewChapters, totalNewChapters } from '../library/new-chapters';
 import { loadDownloadStates } from '../library/download-manager';
+import { loadExtraSession } from '../providers/weebcentral/session';
 import { initSync, syncStatus } from './sync';
 import { t } from '../i18n';
 import { Icon, ToastRegion, type IconName } from './ui';
@@ -70,6 +71,7 @@ export default function App() {
   onMount(() => {
     void loadLibrary().then(() => initSync());
     void loadDownloadStates();
+    void loadExtraSession();
   });
   return (
     <Router root={Shell}>

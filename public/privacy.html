@@ -38,6 +38,9 @@
   <p>All Google requests go directly from your browser to Google. PLUNZ servers never receive your Google tokens, your synced data, or your files. Access tokens are kept in memory and in your browser's session storage until they expire (about an hour). You can disconnect in Settings, delete the synced copy, or revoke access at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</p>
   <p>The app's use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements. Google user data is used only to provide the features described above, is not transferred to anyone, is not used for advertising, and is not read by humans.</p>
 
+  <h2>Extra chapter sources (authorized accounts only)</h2>
+  <p>Some accounts can unlock extra sources that fill chapters missing from a title. Unlocking sends a Google access token once to the PLUNZ server, which asks Google for the account's email, checks it against a list of authorized accounts, and returns a signed session that stays on your device. The email is not stored. Requests to those sources then go through the PLUNZ server, which relays them without keeping logs of what you read.</p>
+
   <h2>AniList (optional)</h2>
   <p>If you link an AniList account, the app updates the number of chapters read on your AniList list when you finish a chapter, and reads that number to mark earlier chapters as read on this device. Requests go directly from your browser to AniList. The access token AniList issues is stored only on this device, is never synced or sent to PLUNZ servers, and is removed when you disconnect. You can also revoke access in your AniList account settings.</p>
 

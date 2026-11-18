@@ -1,7 +1,10 @@
 import { mangaKey, type ChapterSummary, type MangaDetails, type ProviderId } from '../core/types';
 import { getProvider } from '../providers';
+import { fetchSourceChapters } from '../providers/weebcentral';
+import { extraAuthHeader } from '../providers/weebcentral/session';
 import { getCachedManga, putCachedManga } from '../storage/manga-cache';
-import { settings } from './store';
+import { fillChapters } from './fill';
+import { library, loadLibrary, settings } from './store';
 
 export interface MangaWithChapters {
   details: MangaDetails;
@@ -25,13 +28,47 @@ export async function loadManga(provider: ProviderId, id: string, signal?: Abort
   }
   try {
     const source = getProvider(provider);
-    const [details, chapters] = await Promise.all([source.getManga(id, signal), source.getChapters(id, { languages }, signal)]);
+    const [details, own, extra] = await Promise.all([
+      source.getManga(id, signal),
+      source.getChapters(id, { languages }, signal),
+      linkedChapters(key, { provider, id }, signal),
+    ]);
+    const chapters = fillChapters(own, extra);
     const fetchedAt = Date.now();
     await putCachedManga({ key, details, chapters, languages, fetchedAt });
     return { details, chapters, offline: false, fetchedAt };
   } catch (error) {
     if (signal?.aborted || !cached) throw error;
     return { details: cached.details, chapters: cached.chapters, offline: true, fetchedAt: cached.fetchedAt };
+  }
+}
+
+/** Extra-source chapter lists reused for a few minutes (the Reader and the title page both load them). */
+const EXTRA_FRESH_FOR = 5 * 60 * 1000;
+const extraCache = new Map<string, { chapters: ChapterSummary[]; at: number }>();
+
+export function forgetLinkedChapters(key: string): void {
+  for (const cached of [...extraCache.keys()]) if (cached.startsWith(`${key}|`)) extraCache.delete(cached);
+}
+
+/**
+ * Chapters from the extra source linked to a title. Empty when nothing is
+ * linked, the sources are locked, or the source fails: the title's own
+ * chapters must always load.
+ */
+async function linkedChapters(key: string, title: { provider: ProviderId; id: string }, signal?: AbortSignal): Promise<ChapterSummary[]> {
+  await loadLibrary();
+  const link = library[key]?.deleted ? undefined : library[key]?.sources?.weebcentral;
+  if (!link || !(await extraAuthHeader())) return [];
+  const cacheKey = `${key}|${link.id}`;
+  const hit = extraCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < EXTRA_FRESH_FOR) return hit.chapters;
+  try {
+    const chapters = await fetchSourceChapters(link.id, title, signal);
+    extraCache.set(cacheKey, { chapters, at: Date.now() });
+    return chapters;
+  } catch {
+    return hit?.chapters ?? [];
   }
 }
 

@@ -1,10 +1,12 @@
 import type { MangaProvider, ProviderId } from '../core/types';
 import { createMangaDexProvider } from './mangadex';
 import { localProvider } from './local';
+import { weebCentralProvider } from './weebcentral';
 
 const providers: Record<ProviderId, MangaProvider> = {
   mangadex: createMangaDexProvider(),
   local: localProvider,
+  weebcentral: weebCentralProvider,
 };
 
 export function getProvider(id: ProviderId): MangaProvider {

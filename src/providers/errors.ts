@@ -8,7 +8,8 @@ export type ProviderErrorCode =
   | 'not_found'
   | 'upstream'
   | 'empty_archive'
-  | 'unsupported_format';
+  | 'unsupported_format'
+  | 'unauthorized';
 
 export class ProviderError extends Error {
   readonly code: ProviderErrorCode;

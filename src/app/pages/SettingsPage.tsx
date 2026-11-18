@@ -10,6 +10,7 @@ import { googleState, isSyncEnabled, lastSync, setSyncEnabled, syncNow, syncStat
 import { requestPersistentStorage, storageEstimate } from '../../storage/db';
 import { changeLanguage, formatBytes, languageName, preference, t, type Preference } from '../../i18n';
 import { errorMessage, toast } from '../ui';
+import { extraSession, lockExtraSources, unlockExtraSources } from '../../providers/weebcentral/session';
 import { aniListAccount, connectAniList, disconnectAniList, isAniListConfigured, loadAniList } from '../../trackers/anilist';
 import { modeLabel } from './MangaPage';
 
@@ -155,6 +156,29 @@ export default function SettingsPage() {
                 <p>{t('Connected to AniList as {name}', { name: linked().userName })}</p>
                 <div class="button-row">
                   <Button type="button" variant="ghost" size="sm" onClick={() => void disconnectAniList().then(() => toast(t('AniList disconnected.')))}>{t('Disconnect')}</Button>
+                </div>
+              </>
+            )}
+          </Show>
+        </section>
+      </Show>
+
+      <Show when={isGoogleConfigured()}>
+        <section class="settings-section" id="extra-sources" aria-labelledby="extra-heading">
+          <h2 id="extra-heading">{t('Extra chapter sources')}</h2>
+          <p class="hint">{t('Fills chapters missing from a title with another source. Available only to authorized accounts.')}</p>
+          <Show when={extraSession()} fallback={
+            <Button type="button" variant="outline" disabled={busy()} onClick={() => void withBusy(async () => {
+              const unlocked = await unlockExtraSources();
+              toast(t('Extra sources unlocked for {email}', { email: unlocked.email }));
+            })}>{t('Unlock with Google')}</Button>
+          }>
+            {current => (
+              <>
+                <p>{t('Unlocked for {email}', { email: current().email })}</p>
+                <p class="hint">{t('Open a title and choose “Fill missing chapters” to link it.')}</p>
+                <div class="button-row">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => void lockExtraSources()}>{t('Lock')}</Button>
                 </div>
               </>
             )}

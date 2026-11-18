@@ -24,14 +24,14 @@ export async function loadChapterPages(chapter: ChapterSummary, options: { dataS
   if (download?.status === 'complete' || chapter.provider === 'local') {
     refs = Array.from({ length: download?.pageCount ?? chapter.pages }, (_, index) => ({ index, url: '' }));
   } else {
-    refs = await getProvider(chapter.provider).getPages(chapter.id, { dataSaver: options.dataSaver }, options.signal);
+    refs = await getProvider(chapter.source ?? chapter.provider).getPages(chapter.id, { dataSaver: options.dataSaver }, options.signal);
   }
   return refs.map(ref => createHandle(key, ref));
 }
 
 /** Page references from the provider, for downloading. */
 export async function remotePageRefs(chapter: ChapterSummary, dataSaver: boolean, signal?: AbortSignal): Promise<PageRef[]> {
-  return getProvider(chapter.provider).getPages(chapter.id, { dataSaver }, signal);
+  return getProvider(chapter.source ?? chapter.provider).getPages(chapter.id, { dataSaver }, signal);
 }
 
 function createHandle(key: string, ref: PageRef): PageHandle {

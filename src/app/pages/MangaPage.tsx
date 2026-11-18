@@ -5,6 +5,9 @@ import { chapterLabel, mangaKey, type ChapterSummary, type ReadingMode } from '.
 import { groupByVolume, loadManga } from '../../library/manga';
 import { addRecentTitle } from '../../library/recent';
 import { reportReadToTracker, syncTitleWithTracker } from '../../trackers/sync';
+import { extraSourcesUnlocked } from '../../providers/weebcentral/session';
+import { WEEBCENTRAL_NAME } from '../../providers/weebcentral';
+import { SourceSheet } from '../SourceSheet';
 import {
   effectiveMode,
   isChapterRead,
@@ -41,6 +44,8 @@ export default function MangaPage() {
   const [selected, setSelected] = createSignal<Set<string>>(new Set());
   const [expanded, setExpanded] = createSignal(false);
   const [sending, setSending] = createSignal(false);
+  const [linking, setLinking] = createSignal(false);
+  const sourceLink = () => (library[key()]?.deleted ? undefined : library[key()]?.sources?.weebcentral);
 
   const key = () => (data() ? mangaKey(data()!.details.provider, data()!.details.id) : '');
   const saved = () => isInLibrary(key());
@@ -147,6 +152,15 @@ export default function MangaPage() {
                 <option value="vertical">{modeLabel('vertical')}</option>
               </select>
             </div>
+
+            <Show when={extraSourcesUnlocked() && loaded().details.provider !== 'local'}>
+              <div class="fill-row">
+                <Button type="button" size="sm" variant="outline" onClick={() => setLinking(true)}>
+                  <Icon name="plus" size={18} /> {sourceLink() ? t('Filling from {source}', { source: WEEBCENTRAL_NAME }) : t('Fill missing chapters')}
+                </Button>
+              </div>
+              <SourceSheet open={linking()} onClose={() => setLinking(false)} details={loaded().details} onChanged={() => void refetch()} />
+            </Show>
 
             <div class="section-head">
               <h2>{tn(loaded().chapters.length, '{count} chapter', '{count} chapters')}</h2>
