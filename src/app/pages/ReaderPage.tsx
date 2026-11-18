@@ -4,6 +4,7 @@ import { Button } from '@plunz/storybook';
 import { chapterLabel, mangaKey, type ReadingMode } from '../../core/types';
 import { adjacentChapter, loadManga } from '../../library/manga';
 import { effectiveMode, progress, saveProgress, settings } from '../../library/store';
+import { reportReadToTracker } from '../../trackers/sync';
 import { loadChapterPages, type PageHandle } from '../../reader/pages';
 import { isProviderId } from '../../providers';
 import { t } from '../../i18n';
@@ -74,7 +75,9 @@ export default function ReaderPage() {
     if (!list || !item || !manga()) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      void saveProgress({ key: key(), chapter: item, chapterLabel: chapterLabel({ ...item, title: undefined }), page: Math.min(current, list.length - 1), pageCount: list.length });
+      const finished = list.length > 0 && current >= list.length - 1;
+      void saveProgress({ key: key(), chapter: item, chapterLabel: chapterLabel({ ...item, title: undefined }), page: Math.min(current, list.length - 1), pageCount: list.length })
+        .then(() => { if (finished && manga()) reportReadToTracker(manga()!.details, manga()!.chapters); });
     }, 600);
   }));
   onCleanup(() => clearTimeout(saveTimer));

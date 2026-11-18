@@ -54,6 +54,15 @@ Google features need an OAuth client in Google Cloud. The client id is public, n
 
 Do not send `Cross-Origin-Opener-Policy: same-origin`, because it breaks the Google popup.
 
+## AniList setup
+
+Tracking uses AniList's implicit grant, so no server or secret is involved. AniList allows one redirect URL per client.
+
+1. At https://anilist.co/settings/developer, create a client named "PLUNZ Manga" with redirect URL `https://manga.plu.nz/auth/anilist`.
+2. Put its numeric id in `.env.production` as `VITE_ANILIST_CLIENT_ID`. For local work, create a second client with `http://localhost:5173/auth/anilist` and use its id in `.env.local`.
+
+AniList stores one "chapters read" number per title. The app pushes the highest whole chapter read (never lowering it) and, on pull, marks chapters up to that number as read unless the user marked them unread here. MyAnimeList is not supported yet: its API sends no CORS headers, so it would need the Worker as a proxy.
+
 ## Deploy
 
 ```sh

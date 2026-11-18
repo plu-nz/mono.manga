@@ -13,7 +13,8 @@ Local-first SolidJS PWA. User data never reaches a PLUNZ server.
 - `src/reader/`: page handles shared by the reader and the converter.
 - `src/converter/`: EPUB 3 fixed-layout generation. Images are processed one page at a time in a Web Worker; keep memory bounded for phones.
 - `src/kindle/`: device profiles and the send/download flow.
-- `src/google/`, `src/sync/`: optional Google Identity Services token flow, Drive `appDataFolder`, Gmail `messages.send`, and last-write-wins merging. Request scopes progressively and only from user gestures.
+- `src/google/`, `src/sync/`: optional Google Identity Services token flow, Drive `appDataFolder`, Gmail `messages.send`, and last-write-wins merging (reading progress merges read marks per chapter). Request scopes progressively and only from user gestures.
+- `src/trackers/`: optional AniList link (implicit grant, token kept only in IndexedDB). Tracker failures must never block reading.
 - `src/app/`: shell, routes, screens, and shared UI. User-facing text goes through `t()` from `src/i18n` with Portuguese and Spanish entries in `src/i18n/messages.ts`.
 - `worker/`: Hono Worker, a GET-only allowlist relay for `api.mangadex.org` with edge caching and rate limiting. It must not store or log user data, proxy images, or add permissive CORS.
 

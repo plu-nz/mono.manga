@@ -15,6 +15,7 @@ const MangaPage = lazy(() => import('./pages/MangaPage'));
 const ReaderPage = lazy(() => import('./pages/ReaderPage'));
 const DownloadsPage = lazy(() => import('./pages/DownloadsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const AniListCallbackPage = lazy(() => import('./pages/AniListCallbackPage'));
 
 function NavLink(props: { href: string; icon: IconName; label: string; badge?: number; end?: boolean; onClick?: () => void }) {
   return (
@@ -78,6 +79,7 @@ export default function App() {
       <Route path="/read/:provider/:mangaId/:chapterId" component={ReaderPage} />
       <Route path="/downloads" component={DownloadsPage} />
       <Route path="/settings" component={SettingsPage} />
+      <Route path="/auth/anilist" component={AniListCallbackPage} />
       <Route path="*" component={LibraryPage} />
     </Router>
   );

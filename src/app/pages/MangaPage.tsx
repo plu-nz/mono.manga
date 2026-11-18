@@ -4,6 +4,7 @@ import { Button } from '@plunz/storybook';
 import { chapterLabel, mangaKey, type ChapterSummary, type ReadingMode } from '../../core/types';
 import { groupByVolume, loadManga } from '../../library/manga';
 import { addRecentTitle } from '../../library/recent';
+import { reportReadToTracker, syncTitleWithTracker } from '../../trackers/sync';
 import {
   effectiveMode,
   isChapterRead,
@@ -30,7 +31,11 @@ export default function MangaPage() {
   const navigate = useNavigate();
   const [data, { refetch }] = createResource(
     () => (isProviderId(params.provider) ? { provider: params.provider, id: decodeURIComponent(params.id) } : undefined),
-    source => loadManga(source.provider, source.id).then(result => { void addRecentTitle(result.details); return result; }),
+    source => loadManga(source.provider, source.id).then(result => {
+      void addRecentTitle(result.details);
+      syncTitleWithTracker(result.details, result.chapters);
+      return result;
+    }),
   );
   const [selecting, setSelecting] = createSignal(false);
   const [selected, setSelected] = createSignal<Set<string>>(new Set());
@@ -228,7 +233,7 @@ export default function MangaPage() {
               <div class="selection-bar" role="toolbar" aria-label={t('Selected chapters')}>
                 <span>{tn(selectedChapters().length, '{count} selected', '{count} selected')}</span>
                 <div class="selection-actions">
-                  <IconButton icon="check" label={t('Mark as read')} disabled={!selectedChapters().length} onClick={() => void setChaptersRead(key(), selectedChapters().map(chapter => chapter.id), true).then(stopSelecting)} />
+                  <IconButton icon="check" label={t('Mark as read')} disabled={!selectedChapters().length} onClick={() => void setChaptersRead(key(), selectedChapters().map(chapter => chapter.id), true).then(() => { reportReadToTracker(data()!.details, data()!.chapters); stopSelecting(); })} />
                   <IconButton icon="unread" label={t('Mark as unread')} disabled={!selectedChapters().length} onClick={() => void setChaptersRead(key(), selectedChapters().map(chapter => chapter.id), false).then(stopSelecting)} />
                   <Show when={loaded().details.provider !== 'local'}>
                     <IconButton icon="download" label={t('Save offline')} disabled={!selectedChapters().length} onClick={() => {

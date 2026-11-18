@@ -5,7 +5,7 @@ import type { ChapterSummary, KindleSendState, LibraryEntry, MangaDetails, Readi
  * the last one delivered to the Kindle, one release per chapter number.
  */
 
-function chapterNumber(chapter: ChapterSummary): number | undefined {
+export function chapterNumber(chapter: ChapterSummary): number | undefined {
   if (chapter.number === undefined || chapter.number === '') return undefined;
   const value = Number(chapter.number);
   return Number.isFinite(value) ? value : undefined;

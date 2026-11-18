@@ -10,6 +10,7 @@ import { googleState, isSyncEnabled, lastSync, setSyncEnabled, syncNow, syncStat
 import { requestPersistentStorage, storageEstimate } from '../../storage/db';
 import { changeLanguage, formatBytes, languageName, preference, t, type Preference } from '../../i18n';
 import { errorMessage, toast } from '../ui';
+import { aniListAccount, connectAniList, disconnectAniList, isAniListConfigured, loadAniList } from '../../trackers/anilist';
 import { modeLabel } from './MangaPage';
 
 /** MangaDex translation language tags most readers ask for. */
@@ -24,7 +25,7 @@ export default function SettingsPage() {
   const [syncOn, setSyncOn] = createSignal(isSyncEnabled());
   const [estimate, { refetch: refetchEstimate }] = createResource(() => storageEstimate());
   const [persisted, setPersisted] = createSignal<boolean>();
-  onMount(() => { if (isGoogleConfigured()) void preloadGoogle(); });
+  onMount(() => { if (isGoogleConfigured()) void preloadGoogle(); void loadAniList(); });
 
   function toggleLanguage(tag: string) {
     const current = [...settings.languages];
@@ -141,6 +142,25 @@ export default function SettingsPage() {
           <a href="https://www.amazon.com/hz/mycd/myx#/home/settings/pdoc" target="_blank" rel="noopener">{t('Open Amazon settings')}</a>
         </details>
       </section>
+
+      <Show when={isAniListConfigured()}>
+        <section class="settings-section" id="tracking" aria-labelledby="tracking-heading">
+          <h2 id="tracking-heading">{t('Tracking')}</h2>
+          <p class="hint">{t('Optional. Link AniList to update your list when you finish a chapter and to bring chapters you read elsewhere into this app.')}</p>
+          <Show when={aniListAccount()} fallback={
+            <Button type="button" onClick={() => { try { connectAniList(); } catch (error) { toast(errorMessage(error)); } }}>{t('Connect AniList')}</Button>
+          }>
+            {linked => (
+              <>
+                <p>{t('Connected to AniList as {name}', { name: linked().userName })}</p>
+                <div class="button-row">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => void disconnectAniList().then(() => toast(t('AniList disconnected.')))}>{t('Disconnect')}</Button>
+                </div>
+              </>
+            )}
+          </Show>
+        </section>
+      </Show>
 
       <section class="settings-section" aria-labelledby="google-heading">
         <h2 id="google-heading">{t('Google account')}</h2>
