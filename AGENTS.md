@@ -35,7 +35,7 @@ Local-first SolidJS PWA. User data never reaches a PLUNZ server.
 - Test: `pnpm test`.
 - Type-check and build: `pnpm build`.
 - All checks: `pnpm verify`.
-- Deploy: `VITE_GOOGLE_CLIENT_ID=<id> pnpm run deploy` (manual).
+- Deploy: `pnpm run deploy` (manual; the public OAuth client id comes from `.env.production`).
 
 ## Completion checks
 

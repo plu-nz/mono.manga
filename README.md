@@ -50,15 +50,17 @@ Google features need an OAuth client in Google Cloud. The client id is public, n
 3. Audience: External. While in Testing, add up to 100 test users.
 4. Data access: `openid`, `userinfo.email`, `drive.appdata` (non-sensitive), and `gmail.send` (**sensitive**: publishing needs Google's verification with a demo video; no security assessment).
 5. Credentials: OAuth client ID, type Web application. Authorized JavaScript origins: `https://manga.plu.nz` and `http://localhost:5173`. No redirect URIs are needed for the popup flow.
-6. Build with `VITE_GOOGLE_CLIENT_ID=<client id>`.
+6. Put the client id in `.env.production` (production) or `.env.local` (development) as `VITE_GOOGLE_CLIENT_ID`.
 
 Do not send `Cross-Origin-Opener-Policy: same-origin`, because it breaks the Google popup.
 
 ## Deploy
 
 ```sh
-VITE_GOOGLE_CLIENT_ID=<client id> pnpm run deploy
+pnpm run deploy
 ```
+
+The production OAuth client id (Google Cloud project "PLUNZ Manga") is committed in `.env.production`; it is public by design.
 
 `wrangler.jsonc` declares the `plunz-manga` Worker, its assets, the `API_LIMIT` rate-limit binding, and the `manga.plu.nz` custom domain. CI ([`ci.yml`](.github/workflows/ci.yml)) runs tests and the build through the shared PLUNZ workflow.
 
