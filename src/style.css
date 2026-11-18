@@ -86,6 +86,12 @@ body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
 .empty h2 { color: var(--plz-text); }
 .empty p { max-width: 36ch; }
 
+.recent { display: flex; flex-direction: column; gap: 8px; }
+.recent h2 { font-size: .8125rem; text-transform: uppercase; letter-spacing: .06em; color: var(--plz-muted); }
+.recent-searches { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.recent-searches li { display: flex; align-items: center; border-bottom: 1px solid var(--plz-line); }
+.recent-query { flex: 1; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--plz-text); text-align: left; cursor: pointer; }
+.recent-query .icon { color: var(--plz-muted); }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--plz-line); overflow-x: auto; }
 .tab { min-height: 44px; padding: 0 14px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--plz-muted); font-weight: 700; cursor: pointer; white-space: nowrap; }
 .tab[aria-selected=true] { color: var(--plz-text); border-bottom-color: var(--plz-accent); }

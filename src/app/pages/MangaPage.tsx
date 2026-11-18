@@ -3,6 +3,7 @@ import { A, useNavigate, useParams } from '@solidjs/router';
 import { Button } from '@plunz/storybook';
 import { chapterLabel, mangaKey, type ChapterSummary, type ReadingMode } from '../../core/types';
 import { groupByVolume, loadManga } from '../../library/manga';
+import { addRecentTitle } from '../../library/recent';
 import {
   effectiveMode,
   isChapterRead,
@@ -27,7 +28,7 @@ export default function MangaPage() {
   const navigate = useNavigate();
   const [data, { refetch }] = createResource(
     () => (isProviderId(params.provider) ? { provider: params.provider, id: decodeURIComponent(params.id) } : undefined),
-    source => loadManga(source.provider, source.id),
+    source => loadManga(source.provider, source.id).then(result => { void addRecentTitle(result.details); return result; }),
   );
   const [selecting, setSelecting] = createSignal(false);
   const [selected, setSelected] = createSignal<Set<string>>(new Set());

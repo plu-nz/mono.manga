@@ -223,6 +223,10 @@ export const translations: Record<string, readonly [string, string]> = {
   'Tap the star on a title to add it here. New chapters are counted each time you open this screen.': ['Toque na estrela de um título para adicioná-lo aqui. Os capítulos novos são contados sempre que você abre esta tela.', 'Toca la estrella de un título para añadirlo aquí. Los capítulos nuevos se cuentan cada vez que abres esta pantalla.'],
   '{count} new chapter': ['{count} capítulo novo', '{count} capítulo nuevo'],
   '{count} new chapters': ['{count} capítulos novos', '{count} capítulos nuevos'],
+  'Recent searches': ['Buscas recentes', 'Búsquedas recientes'],
+  'Recently opened': ['Abertos recentemente', 'Abiertos recientemente'],
+  'Clear history': ['Limpar histórico', 'Borrar historial'],
+  'Remove “{query}” from history': ['Remover “{query}” do histórico', 'Quitar “{query}” del historial'],
   // Publication status values from providers.
   ongoing: ['em andamento', 'en curso'],
   completed: ['concluído', 'completado'],

@@ -1,4 +1,4 @@
-import { createSignal, For, onCleanup, Show } from 'solid-js';
+import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { A, useNavigate, useSearchParams } from '@solidjs/router';
 import { Button } from '@plunz/storybook';
 import type { MangaSummary } from '../../core/types';
@@ -6,7 +6,8 @@ import { getProvider } from '../../providers';
 import { importLocalFiles } from '../../providers/local';
 import { setFavorite, settings } from '../../library/store';
 import { t, tn } from '../../i18n';
-import { Cover, EmptyState, Icon, errorMessage, toast } from '../ui';
+import { Cover, EmptyState, Icon, IconButton, errorMessage, toast } from '../ui';
+import { addRecentSearch, clearRecent, loadRecent, recentSearches, recentTitles, removeRecentSearch } from '../../library/recent';
 
 const PAGE_SIZE = 24;
 
@@ -53,6 +54,15 @@ export default function SearchPage() {
   }
 
   if (params.q) void run(params.q);
+  onMount(() => { void loadRecent(); });
+
+  function searchFor(query: string) {
+    clearTimeout(timer);
+    setText(query);
+    setParams({ q: query }, { replace: true });
+    void addRecentSearch(query);
+    void run(query);
+  }
 
   async function onImport(files: FileList | null) {
     if (!files?.length) return;
@@ -76,7 +86,7 @@ export default function SearchPage() {
       <header class="page-head">
         <h1 id="search-heading">{t('Search')}</h1>
       </header>
-      <form class="search-form" role="search" onSubmit={event => { event.preventDefault(); clearTimeout(timer); setParams({ q: text().trim() || undefined }, { replace: true }); void run(text()); }}>
+      <form class="search-form" role="search" onSubmit={event => { event.preventDefault(); clearTimeout(timer); setParams({ q: text().trim() || undefined }, { replace: true }); void addRecentSearch(text()); void run(text()); }}>
         <label class="sr-only" for="search-input">{t('Search titles on MangaDex')}</label>
         <Icon name="search" class="search-icon" />
         <input
@@ -108,16 +118,57 @@ export default function SearchPage() {
       </Show>
 
       <Show when={!searched() && !loading() && !error()}>
-        <EmptyState icon="search" title={t('Find something to read')}>
-          <p>{t('Search MangaDex by title. Results only include titles with chapters in your languages.')}</p>
-        </EmptyState>
+        <Show when={recentSearches().length || recentTitles().length} fallback={
+          <EmptyState icon="search" title={t('Find something to read')}>
+            <p>{t('Search MangaDex by title. Results only include titles with chapters in your languages.')}</p>
+          </EmptyState>
+        }>
+          <Show when={recentSearches().length}>
+            <section class="recent" aria-labelledby="recent-searches-heading">
+              <div class="row-between">
+                <h2 id="recent-searches-heading">{t('Recent searches')}</h2>
+                <button type="button" class="text-button" onClick={() => void clearRecent()}>{t('Clear history')}</button>
+              </div>
+              <ul class="recent-searches">
+                <For each={recentSearches()}>
+                  {query => (
+                    <li>
+                      <button type="button" class="recent-query" onClick={() => searchFor(query)}><Icon name="search" size={16} /> {query}</button>
+                      <IconButton icon="close" label={t('Remove “{query}” from history', { query })} onClick={() => void removeRecentSearch(query)} />
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </section>
+          </Show>
+          <Show when={recentTitles().length}>
+            <section class="recent" aria-labelledby="recent-titles-heading">
+              <div class="row-between">
+                <h2 id="recent-titles-heading">{t('Recently opened')}</h2>
+                <Show when={!recentSearches().length}><button type="button" class="text-button" onClick={() => void clearRecent()}>{t('Clear history')}</button></Show>
+              </div>
+              <ul class="grid">
+                <For each={recentTitles()}>
+                  {item => (
+                    <li>
+                      <A class="tile" href={`/manga/${item.provider}/${encodeURIComponent(item.id)}`}>
+                        <Cover url={item.coverUrl} title={item.title} />
+                        <span class="tile-title">{item.title}</span>
+                      </A>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </section>
+          </Show>
+        </Show>
       </Show>
 
       <ul class="grid" aria-busy={loading()}>
         <For each={items()}>
           {item => (
             <li>
-              <A class="tile" href={`/manga/${item.provider}/${encodeURIComponent(item.id)}`}>
+              <A class="tile" href={`/manga/${item.provider}/${encodeURIComponent(item.id)}`} onClick={() => void addRecentSearch(text())}>
                 <Cover url={item.coverUrl} title={item.title} />
                 <span class="tile-title">{item.title}</span>
                 <Show when={item.year || item.status}>
