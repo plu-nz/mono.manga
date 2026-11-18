@@ -5,8 +5,8 @@
  * The MIME message is assembled as a `Blob` of parts and the base64 body is
  * produced slice by slice, so a 25 MB EPUB never becomes one giant string.
  */
-import { authorizedFetch } from './auth';
-import { GoogleError, ensureOk, googleErrorFromStatus } from './errors';
+import { getAccessToken, invalidateAccessToken } from './auth';
+import { GoogleError, googleErrorFromStatus } from './errors';
 
 /**
  * `users.messages.send` media upload limit: `maxSize: "36700160"` (35 MiB)
@@ -23,7 +23,15 @@ const BYTES_PER_LINE = (LINE_LENGTH / 4) * 3;
 /** Blob slice size: a multiple of 57 (hence of 3), so slices encode independently. */
 const SLICE_BYTES = BYTES_PER_LINE * 16 * 1024;
 const CRLF = '\r\n';
-const SEND_URL = 'https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=resumable';
+/**
+ * The JSON `messages.send` endpoint. Gmail's media-upload endpoint
+ * (`/upload/gmail/...`) answers preflights but sends no CORS headers on its
+ * actual responses, so browsers see every upload as a network error; this
+ * endpoint returns CORS headers, so the message travels as base64url `raw`.
+ */
+const SEND_URL = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send';
+/** Raw bytes per base64url chunk; a multiple of 3 so chunks concatenate cleanly. */
+const RAW_CHUNK_BYTES = 3 * 256 * 1024;
 
 export interface MimeAttachment {
   blob: Blob;
@@ -238,35 +246,37 @@ function abortReason(signal?: AbortSignal): unknown {
     : new DOMException('The send was aborted', 'AbortError');
 }
 
-function uploadBytes(sessionUrl: string, body: Blob, options: SendOptions): Promise<SentMessage> {
-  return new Promise<SentMessage>((resolve, reject) => {
+/** `{"raw":"<base64url of the message>"}` built chunk by chunk as a Blob, never one giant string. */
+export async function buildRawJsonBody(mime: Blob): Promise<Blob> {
+  const parts: BlobPart[] = ['{"raw":"'];
+  for (let offset = 0; offset < mime.size; offset += RAW_CHUNK_BYTES) {
+    const bytes = new Uint8Array(await mime.slice(offset, offset + RAW_CHUNK_BYTES).arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    parts.push(btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''));
+  }
+  parts.push('"}');
+  return new Blob(parts, { type: 'application/json' });
+}
+
+function postJson(token: string, body: Blob, options: SendOptions): Promise<{ status: number; text: string }> {
+  return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const onAbort = (): void => xhr.abort();
     const cleanup = (): void => options.signal?.removeEventListener('abort', onAbort);
-
-    xhr.open('PUT', sessionUrl);
-    // The session URI itself authorizes the upload; no bearer token needed here.
-    xhr.setRequestHeader('Content-Type', 'message/rfc822');
+    xhr.open('POST', SEND_URL);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.setRequestHeader('Content-Type', 'application/json');
     xhr.upload.onprogress = (event) => {
       options.onProgress?.(event.loaded, event.lengthComputable ? event.total : body.size);
     };
     xhr.onload = () => {
       cleanup();
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const sent = JSON.parse(xhr.responseText) as SentMessage;
-          options.onProgress?.(body.size, body.size);
-          resolve(sent);
-        } catch (error) {
-          reject(new GoogleError('api', 'Gmail returned an unreadable response', { cause: error }));
-        }
-        return;
-      }
-      reject(googleErrorFromStatus(xhr.status, xhr.responseText, 'Gmail send'));
+      resolve({ status: xhr.status, text: xhr.responseText });
     };
     xhr.onerror = () => {
       cleanup();
-      reject(new GoogleError('network', 'The upload to Gmail failed'));
+      reject(new GoogleError('network', 'The request to Gmail failed'));
     };
     xhr.ontimeout = xhr.onerror;
     xhr.onabort = () => {
@@ -279,30 +289,32 @@ function uploadBytes(sessionUrl: string, body: Blob, options: SendOptions): Prom
 }
 
 /**
- * Sends a ready RFC 822 message through a Gmail resumable media upload:
- * opens a session, then PUTs the bytes to the returned `Location` with
- * upload progress. Abort with `signal` (rejects with an `AbortError`).
+ * Sends a ready RFC 822 message with `users.messages.send` (JSON `raw`),
+ * reporting upload progress and retrying once with a fresh token on 401.
+ * Abort with `signal` (rejects with an `AbortError`).
  */
 export async function sendMimeMessage(mime: Blob, options: SendOptions = {}): Promise<SentMessage> {
   if (mime.size > GMAIL_MAX_MESSAGE_BYTES) {
     throw new GoogleError('too_large', `Message is ${mime.size} bytes; Gmail accepts up to ${GMAIL_MAX_MESSAGE_BYTES}`);
   }
   if (options.signal?.aborted) throw abortReason(options.signal);
-  const session = await authorizedFetch(
-    ['gmail'],
-    SEND_URL,
-    {
-      method: 'POST',
-      headers: { 'X-Upload-Content-Type': 'message/rfc822', 'X-Upload-Content-Length': String(mime.size) },
-      signal: options.signal,
-    },
-    { interactive: options.interactive ?? false },
-  );
-  await ensureOk(session, 'Gmail upload session');
-  const location = session.headers.get('Location');
-  if (!location) throw new GoogleError('api', 'Gmail did not return an upload session URL');
-  if (options.signal?.aborted) throw abortReason(options.signal);
-  return uploadBytes(location, mime, options);
+  const body = await buildRawJsonBody(mime);
+  const interactive = options.interactive ?? false;
+  let token = await getAccessToken(['gmail'], { interactive });
+  let response = await postJson(token, body, options);
+  if (response.status === 401) {
+    invalidateAccessToken(token);
+    token = await getAccessToken(['gmail'], { interactive });
+    response = await postJson(token, body, options);
+  }
+  if (response.status < 200 || response.status >= 300) throw googleErrorFromStatus(response.status, response.text, 'Gmail send');
+  try {
+    const sent = JSON.parse(response.text) as SentMessage;
+    options.onProgress?.(body.size, body.size);
+    return sent;
+  } catch (error) {
+    throw new GoogleError('api', 'Gmail returned an unreadable response', { cause: error });
+  }
 }
 
 export interface SendFileInput extends SendOptions {

@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./auth', () => ({ authorizedFetch: vi.fn() }));
+vi.mock('./auth', () => ({ getAccessToken: vi.fn(), invalidateAccessToken: vi.fn() }));
 
-import { authorizedFetch } from './auth';
+import { getAccessToken, invalidateAccessToken } from './auth';
 import {
   GMAIL_MAX_MESSAGE_BYTES,
   asciiFileName,
   base64WrappedLength,
   buildMimeMessage,
+  buildRawJsonBody,
   encodeHeaderText,
   maxAttachmentBytes,
   rfc2231Encode,
@@ -15,7 +16,15 @@ import {
   sendMimeMessage,
 } from './gmail';
 
-const mockedFetch = vi.mocked(authorizedFetch);
+const mockedToken = vi.mocked(getAccessToken);
+const mockedInvalidate = vi.mocked(invalidateAccessToken);
+
+/** Decode the base64url `raw` field of a JSON send body back into the RFC 822 message. */
+async function rawMessage(body: Blob): Promise<Blob> {
+  const { raw } = JSON.parse(await body.text()) as { raw: string };
+  const padded = raw.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (raw.length % 4)) % 4);
+  return new Blob([Uint8Array.from(atob(padded), (char) => char.charCodeAt(0))]);
+}
 
 function randomBytes(length: number): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(length);
@@ -186,7 +195,7 @@ describe('size math', () => {
   });
 });
 
-// --- Resumable upload ----------------------------------------------------------
+// --- Sending -------------------------------------------------------------------
 
 class FakeXhr {
   static instances: FakeXhr[] = [];
@@ -224,71 +233,87 @@ class FakeXhr {
   }
 }
 
+describe('buildRawJsonBody', () => {
+  it('encodes the message as base64url across chunk boundaries', async () => {
+    const bytes = randomBytes(3 * 256 * 1024 * 2 + 5);
+    const body = await buildRawJsonBody(new Blob([bytes]));
+    const text = await body.text();
+    expect(text.startsWith('{"raw":"')).toBe(true);
+    expect(text).not.toMatch(/[+/=]/);
+    expect(new Uint8Array(await (await rawMessage(body)).arrayBuffer())).toEqual(bytes);
+  });
+});
+
 describe('sendMimeMessage', () => {
   beforeEach(() => {
     FakeXhr.instances = [];
     vi.stubGlobal('XMLHttpRequest', FakeXhr);
-    mockedFetch.mockReset();
+    mockedToken.mockReset();
+    mockedInvalidate.mockReset();
+    mockedToken.mockResolvedValue('token-1');
   });
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  const sessionUrl = 'https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=resumable&upload_id=abc';
-
-  it('opens a resumable session then PUTs the bytes with progress', async () => {
-    mockedFetch.mockResolvedValue(new Response(null, { status: 200, headers: { Location: sessionUrl } }));
+  it('posts the message as JSON raw with the bearer token and progress', async () => {
     const mime = new Blob(['x'.repeat(1000)], { type: 'message/rfc822' });
     const onProgress = vi.fn();
     const promise = sendMimeMessage(mime, { onProgress });
 
     await vi.waitFor(() => expect(FakeXhr.instances).toHaveLength(1));
-    const [sets, url, init, options] = mockedFetch.mock.calls[0];
-    expect(sets).toEqual(['gmail']);
-    expect(url).toBe('https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=resumable');
-    expect(init?.method).toBe('POST');
-    expect(init?.headers).toEqual({ 'X-Upload-Content-Type': 'message/rfc822', 'X-Upload-Content-Length': '1000' });
-    expect(options).toEqual({ interactive: false });
-
+    expect(mockedToken).toHaveBeenCalledWith(['gmail'], { interactive: false });
     const xhr = FakeXhr.instances[0];
-    expect(xhr.method).toBe('PUT');
-    expect(xhr.url).toBe(sessionUrl);
-    expect(xhr.headers['Content-Type']).toBe('message/rfc822');
-    expect(xhr.body).toBe(mime);
-    xhr.upload.onprogress?.({ loaded: 400, total: 1000, lengthComputable: true });
+    expect(xhr.method).toBe('POST');
+    expect(xhr.url).toBe('https://gmail.googleapis.com/gmail/v1/users/me/messages/send');
+    expect(xhr.headers).toMatchObject({ Authorization: 'Bearer token-1', 'Content-Type': 'application/json' });
+    expect(await (await rawMessage(xhr.body as Blob)).text()).toBe('x'.repeat(1000));
+    xhr.upload.onprogress?.({ loaded: 400, total: 1400, lengthComputable: true });
     xhr.respond(200, JSON.stringify({ id: 'm1', threadId: 't1', labelIds: ['SENT'] }));
 
     await expect(promise).resolves.toEqual({ id: 'm1', threadId: 't1', labelIds: ['SENT'] });
-    expect(onProgress).toHaveBeenCalledWith(400, 1000);
-    expect(onProgress).toHaveBeenLastCalledWith(1000, 1000);
+    expect(onProgress).toHaveBeenCalledWith(400, 1400);
   });
 
-  it('maps upload errors and aborts', async () => {
-    mockedFetch.mockResolvedValue(new Response(null, { status: 200, headers: { Location: sessionUrl } }));
+  it('retries once with a fresh token after 401', async () => {
+    mockedToken.mockResolvedValueOnce('stale').mockResolvedValueOnce('fresh');
+    const promise = sendMimeMessage(new Blob(['a']));
+    await vi.waitFor(() => expect(FakeXhr.instances).toHaveLength(1));
+    FakeXhr.instances[0].respond(401, '{}');
+    await vi.waitFor(() => expect(FakeXhr.instances).toHaveLength(2));
+    expect(mockedInvalidate).toHaveBeenCalledWith('stale');
+    expect(FakeXhr.instances[1].headers.Authorization).toBe('Bearer fresh');
+    FakeXhr.instances[1].respond(200, JSON.stringify({ id: 'm', threadId: 't' }));
+    await expect(promise).resolves.toEqual({ id: 'm', threadId: 't' });
+  });
+
+  it('maps errors, network failures, and aborts', async () => {
     const quota = sendMimeMessage(new Blob(['a']));
     await vi.waitFor(() => expect(FakeXhr.instances).toHaveLength(1));
     FakeXhr.instances[0].respond(429, JSON.stringify({ error: { message: 'slow down' } }));
     await expect(quota).rejects.toMatchObject({ code: 'quota' });
 
+    const large = sendMimeMessage(new Blob(['a']));
+    await vi.waitFor(() => expect(FakeXhr.instances).toHaveLength(2));
+    FakeXhr.instances[1].respond(413, '{}');
+    await expect(large).rejects.toMatchObject({ code: 'too_large' });
+
+    const offline = sendMimeMessage(new Blob(['a']));
+    await vi.waitFor(() => expect(FakeXhr.instances).toHaveLength(3));
+    FakeXhr.instances[2].onerror?.();
+    await expect(offline).rejects.toMatchObject({ code: 'network' });
+
     const controller = new AbortController();
     const aborted = sendMimeMessage(new Blob(['a']), { signal: controller.signal });
-    await vi.waitFor(() => expect(FakeXhr.instances).toHaveLength(2));
+    await vi.waitFor(() => expect(FakeXhr.instances).toHaveLength(4));
     controller.abort();
     await expect(aborted).rejects.toMatchObject({ name: 'AbortError' });
-  });
-
-  it('maps session failures', async () => {
-    mockedFetch.mockResolvedValue(
-      new Response(JSON.stringify({ error: { message: 'no', errors: [{ reason: 'insufficientPermissions' }] } }), { status: 403 }),
-    );
-    await expect(sendMimeMessage(new Blob(['a']))).rejects.toMatchObject({ code: 'interaction_required' });
-    expect(FakeXhr.instances).toHaveLength(0);
   });
 
   it('rejects messages over the Gmail limit without calling Google', async () => {
     const oversized = { size: GMAIL_MAX_MESSAGE_BYTES + 1 } as Blob;
     await expect(sendMimeMessage(oversized)).rejects.toMatchObject({ code: 'too_large' });
-    expect(mockedFetch).not.toHaveBeenCalled();
+    expect(mockedToken).not.toHaveBeenCalled();
   });
 });
 
@@ -296,7 +321,8 @@ describe('sendFileByEmail', () => {
   beforeEach(() => {
     FakeXhr.instances = [];
     vi.stubGlobal('XMLHttpRequest', FakeXhr);
-    mockedFetch.mockReset();
+    mockedToken.mockReset();
+    mockedToken.mockResolvedValue('token-1');
   });
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -307,11 +333,10 @@ describe('sendFileByEmail', () => {
     await expect(
       sendFileByEmail({ to: 'x@kindle.com', subject: 's', text: '', file, fileName: 'a.epub', mimeType: 'application/epub+zip' }),
     ).rejects.toMatchObject({ code: 'too_large' });
-    expect(mockedFetch).not.toHaveBeenCalled();
+    expect(mockedToken).not.toHaveBeenCalled();
   });
 
   it('builds and sends the message', async () => {
-    mockedFetch.mockResolvedValue(new Response(null, { status: 200, headers: { Location: 'https://upload.example/session' } }));
     const promise = sendFileByEmail({
       to: 'x@kindle.com',
       subject: 'Vol. 1',
@@ -321,8 +346,7 @@ describe('sendFileByEmail', () => {
       mimeType: 'application/epub+zip',
     });
     await vi.waitFor(() => expect(FakeXhr.instances).toHaveLength(1));
-    const sent = FakeXhr.instances[0].body as Blob;
-    const message = await parse(sent);
+    const message = await parse(await rawMessage(FakeXhr.instances[0].body as Blob));
     expect(decodeBase64(message.parts[1].body)).toEqual(new Uint8Array([9, 8, 7]));
     FakeXhr.instances[0].respond(200, JSON.stringify({ id: 'm', threadId: 't' }));
     await expect(promise).resolves.toEqual({ id: 'm', threadId: 't' });

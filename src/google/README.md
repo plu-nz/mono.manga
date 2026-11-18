@@ -9,7 +9,9 @@ tokens). The app works fully without signing in.
 - `drive.ts` — JSON files in the hidden Drive `appDataFolder` (scope
   `drive.appdata`) and the `DriveStore` used by `src/sync`.
 - `gmail.ts` — builds a MIME message with one attachment and sends it from the
-  user's own account through a resumable upload (scope `gmail.send`).
+  user's own account with the JSON `messages.send` endpoint (`raw`, base64url;
+  scope `gmail.send`). The `/upload/gmail/...` media endpoint is not used: its
+  responses carry no CORS headers, so browsers report every upload as a network error.
 - `errors.ts` — `GoogleError` with a `code` the UI translates.
 
 ## Scopes
@@ -42,6 +44,7 @@ during its lifetime; that is the accepted trade-off of having no backend.
 - `disconnect()` revokes the grant only while a token is cached; otherwise it
   clears local state and the user can remove access at
   <https://myaccount.google.com/permissions>.
-- Gmail `messages.send` accepts up to 35 MiB per message (discovery document
-  `maxSize: 36700160`) after base64, so the raw attachment limit is about
-  26.7 MB (`maxAttachmentBytes()`). Failed uploads are not resumed; retry the send.
+- Gmail accepts up to 35 MiB per message for media uploads; the limit of the
+  JSON `raw` path has not been measured with a real account. The app splits
+  emailed EPUBs into parts of about 17 MiB, and a `413` surfaces as `too_large`.
+  Failed sends are not resumed; retry the send.
