@@ -15,11 +15,13 @@ import {
   isInLibrary,
   isSentToKindle,
   library,
+  markSentToKindle,
   progress,
   setChaptersRead,
   setTitleMode,
   settings,
   toggleFavorite,
+  unmarkSentToKindle,
   updateSettings,
 } from '../../library/store';
 import { downloadStates, queueDownloads } from '../../library/download-manager';
@@ -27,7 +29,7 @@ import { chapterKey } from '../../storage/db';
 import { isProviderId } from '../../providers';
 import { mangaDexTitleUrl } from '../../providers/mangadex';
 import { formatDate, languageName, t, tn } from '../../i18n';
-import { SendSheet } from '../../kindle/SendSheet';
+import { SendSheet, type SendSheetApi } from '../../kindle/SendSheet';
 import { Cover, EmptyState, Icon, IconButton, errorMessage, toast } from '../ui';
 
 export default function MangaPage() {
@@ -45,7 +47,7 @@ export default function MangaPage() {
   const [selected, setSelected] = createSignal<Set<string>>(new Set());
   const [expanded, setExpanded] = createSignal(false);
   const [sending, setSending] = createSignal(false);
-  const [sendTargets, setSendTargets] = createSignal<ChapterSummary[]>([]);
+  let sendSheet: SendSheetApi | undefined;
   /** Volumes the user collapsed on this screen, by group key. */
   const [collapsed, setCollapsed] = createSignal<Set<string>>(new Set());
   const groupKey = (group: { volume?: string; chapters: ChapterSummary[] }) => `${group.volume ?? ''}|${group.chapters[0]?.id ?? ''}`;
@@ -119,9 +121,33 @@ export default function MangaPage() {
     setSelecting(true);
   }
 
+  /** One EPUB per chapter, straight to the Kindle; runs inside the tap so Gmail's popup is allowed. */
   function sendToKindle(chapters: ChapterSummary[]) {
-    setSendTargets(chapters);
     setSending(true);
+    sendSheet?.send(chapters);
+  }
+
+  /** Press and hold on a Kindle button: mark the chapters as sent, or clear the mark when all of them have it. */
+  function toggleSent(chapters: ChapterSummary[]) {
+    const loaded = data();
+    if (!loaded || !chapters.length) return Promise.resolve();
+    const allSent = chapters.every(chapter => isSentToKindle(key(), chapter.id));
+    return (allSent ? unmarkSentToKindle(key(), chapters, loaded.chapters) : markSentToKindle(loaded.details, chapters))
+      .then(() => toast(allSent
+        ? tn(chapters.length, '{count} chapter marked as not sent.', '{count} chapters marked as not sent.')
+        : tn(chapters.length, '{count} chapter marked as sent.', '{count} chapters marked as sent.')));
+  }
+
+  /** Tap sends, press and hold toggles the sent mark (the follow-up click is swallowed by longPress). */
+  function kindleButton(chapters: () => ChapterSummary[], after?: () => void) {
+    const hold = longPress(() => void toggleSent(chapters()).then(after));
+    return {
+      ...hold,
+      onClick(event: MouseEvent) {
+        hold.onClick(event);
+        if (!event.defaultPrevented) sendToKindle(chapters());
+      },
+    };
   }
 
   function setRead(chapters: ChapterSummary[], value: boolean) {
@@ -286,7 +312,7 @@ export default function MangaPage() {
                                     <Show when={loaded().details.provider !== 'local'}>
                                       <IconButton icon="download" class={state()?.status === 'complete' ? 'is-done' : ''} label={state()?.status === 'complete' ? t('Saved offline') : t('Save offline')} disabled={Boolean(state()) && state()!.status !== 'error' && state()!.status !== 'partial'} onClick={() => saveOffline([chapter])} />
                                     </Show>
-                                    <IconButton icon="send" class={isSentToKindle(key(), chapter.id) ? 'is-done' : ''} label={isSentToKindle(key(), chapter.id) ? t('On Kindle · send again') : t('Send to Kindle')} onClick={() => sendToKindle([chapter])} />
+                                    <IconButton icon="send" class={`hold-action ${isSentToKindle(key(), chapter.id) ? 'is-done' : ''}`} label={isSentToKindle(key(), chapter.id) ? t('On Kindle · send again (hold to unmark)') : t('Send to Kindle (hold to mark as sent)')} {...kindleButton(() => [chapter])} />
                                   </div>
                                 </>
                               }>
@@ -326,7 +352,7 @@ export default function MangaPage() {
                   <Show when={loaded().details.provider !== 'local'}>
                     <IconButton icon="download" label={t('Save offline')} disabled={!selectedChapters().length} onClick={() => { saveOffline(selectedChapters()); stopSelecting(); }} />
                   </Show>
-                  <Button type="button" size="sm" disabled={!selectedChapters().length} onClick={() => sendToKindle(selectedChapters())}>
+                  <Button type="button" size="sm" class="hold-action" title={t('Hold to mark or unmark as sent')} disabled={!selectedChapters().length} {...kindleButton(selectedChapters, stopSelecting)}>
                     <Icon name="send" size={18} /> {t('Kindle')}
                   </Button>
                   <IconButton icon="close" label={t('Done')} onClick={stopSelecting} />
@@ -334,7 +360,7 @@ export default function MangaPage() {
               </div>
             </Show>
 
-            <SendSheet open={sending()} onClose={() => setSending(false)} details={loaded().details} chapters={sendTargets()} mode={mode()} />
+            <SendSheet ref={sendSheet} open={sending()} onClose={() => setSending(false)} details={loaded().details} mode={mode()} />
           </>
         )}
       </Show>

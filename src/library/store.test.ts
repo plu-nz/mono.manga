@@ -66,4 +66,17 @@ describe('library store', () => {
     const synced = await store.readCollection('library');
     expect((synced['mangadex:abc'] as { kindle?: unknown }).kindle).toBeTruthy();
   });
+
+  it('unmarks sent chapters and lowers the baseline to the highest one still marked', async () => {
+    const store = await import('./store');
+    await store.loadLibrary();
+    const chapter = (id: string, number: string, groups = ['G']) => ({ provider: 'mangadex' as const, mangaId: 'abc', id, number, language: 'en', pages: 5, groups });
+    const known = [chapter('c8', '8', ['H']), chapter('c9', '9'), chapter('c10', '10')];
+    await store.markSentToKindle(details, known);
+    await store.unmarkSentToKindle('mangadex:abc', [known[1], known[2]], known);
+    expect(store.library['mangadex:abc'].kindle).toMatchObject({ sentIds: ['c8'], lastNumber: 8, lastGroups: ['H'] });
+    expect(store.isSentToKindle('mangadex:abc', 'c10')).toBe(false);
+    await store.unmarkSentToKindle('mangadex:abc', [known[0]], known);
+    expect(store.library['mangadex:abc'].kindle).toBeUndefined();
+  });
 });

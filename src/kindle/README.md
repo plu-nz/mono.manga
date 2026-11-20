@@ -5,6 +5,6 @@
 - `auto.ts`: picks the chapters not yet sent for a title (one release per chapter number, after the last sent chapter, the chapter being read, or only the latest one).
 - `batch.ts`: "Send new chapters" — refreshes every favorite, converts each title's new chapters into one EPUB (split by size), emails it, and records what was sent.
 - `BatchSheet.tsx`: the one-tap sheet for that flow, opened from the Library.
-- `SendSheet.tsx`: the "Send to Kindle" sheet — conversion progress, Gmail sending through `google/gmail.ts`, and manual download as an alternative.
+- `SendSheet.tsx`: the "Send to Kindle" sheet — sends one EPUB per chapter right away through `google/gmail.ts`, showing progress; it asks for the Kindle email once, and offers EPUB download only when Google sign-in is unavailable.
 
 See the [source index](../README.md).

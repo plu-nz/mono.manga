@@ -205,6 +205,33 @@ export async function markSentToKindle(details: MangaDetails, chapters: ChapterS
   });
 }
 
+/**
+ * Forget that chapters reached the Kindle. The baseline for "Send new
+ * chapters" falls back to the highest chapter still marked, looked up in
+ * the title's current `known` chapter list.
+ */
+export async function unmarkSentToKindle(key: MangaKey, chapters: ChapterSummary[], known: ChapterSummary[]): Promise<void> {
+  const entry = library[key];
+  const previous = entry?.kindle;
+  if (!previous || entry.deleted) return;
+  const removed = new Set(chapters.map(chapter => chapter.id));
+  const sentIds = previous.sentIds.filter(id => !removed.has(id));
+  const remaining = known.filter(chapter => sentIds.includes(chapter.id) && Number.isFinite(Number(chapter.number)));
+  const highest = remaining.length ? Math.max(...remaining.map(chapter => Number(chapter.number))) : undefined;
+  const latest = [...remaining].reverse().find(chapter => Number(chapter.number) === highest);
+  // Sent ids from another source may not be in the list; keep the old baseline rather than guess.
+  const keepPrevious = highest === undefined && sentIds.length > 0;
+  const kindle = sentIds.length
+    ? {
+        ...previous,
+        sentIds,
+        lastNumber: keepPrevious ? previous.lastNumber : highest,
+        lastGroups: keepPrevious ? previous.lastGroups : latest?.groups,
+      }
+    : undefined;
+  await putEntry({ ...unwrap(entry), kindle, updatedAt: Date.now() });
+}
+
 export function isSentToKindle(key: MangaKey, chapterId: string): boolean {
   return Boolean(library[key]?.kindle?.sentIds.includes(chapterId));
 }
