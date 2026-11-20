@@ -60,6 +60,7 @@ Titles can be linked to Weeb Central to fill chapters their provider lacks (gaps
 
 - `POST /api/extra/session` takes a Google access token, checks `tokeninfo` (audience must be `GOOGLE_CLIENT_ID`, email verified) and returns an HMAC-signed session valid for 180 days. Any verified account is accepted. Setting the optional `EXTRA_SOURCES_EMAILS` secret narrows access to those addresses again; every relay request re-checks it, and rotating `EXTRA_SOURCES_SECRET` revokes all sessions.
 - `/api/weebcentral/search` and `/series/:id/chapters` relay HTML as `text/plain` (parsed in the app); `/chapters/:id/pages` returns Worker-signed image URLs served by `/api/weebcentral/image`.
+- Auto-fill (on by default, Settings → Extra chapter sources): when a title opens, the app searches Weeb Central by its name and Latin-script alternative names and links it only on an exact normalized match. Matches and misses are kept on the device (misses retried after 7 days); "Stop filling" is synced and stops auto-linking for that title.
 - Filled chapters keep the title's provider and id and set `source: 'weebcentral'`, so read marks, downloads, Kindle state, and AniList keep working per title.
 
 Setup (secrets, never committed):

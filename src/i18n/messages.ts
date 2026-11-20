@@ -90,7 +90,6 @@ export const translations: Record<string, readonly [string, string]> = {
   'Unlock with Google': ['Liberar com Google', 'Desbloquear con Google'],
   'Extra sources unlocked for {email}': ['Fontes extras liberadas para {email}', 'Fuentes extra desbloqueadas para {email}'],
   'Unlocked for {email}': ['Liberado para {email}', 'Desbloqueado para {email}'],
-  'Open a title and choose “Fill missing chapters” to link it.': ['Abra um título e escolha “Completar capítulos” para ligá-lo.', 'Abre un título y elige “Completar capítulos” para vincularlo.'],
   'Lock': ['Bloquear', 'Bloquear'],
   'This Google account is not authorized for extra sources.': ['Esta conta Google não está autorizada a usar fontes extras.', 'Esta cuenta de Google no está autorizada para fuentes extra.'],
   'Unlock extra sources again in Settings.': ['Libere as fontes extras de novo nos Ajustes.', 'Vuelve a desbloquear las fuentes extra en Ajustes.'],
@@ -263,5 +262,8 @@ export const translations: Record<string, readonly [string, string]> = {
   '{count} chapter marked as not sent.': ['{count} capítulo marcado como não enviado.', '{count} capítulo marcado como no enviado.'],
   '{count} chapters marked as not sent.': ['{count} capítulos marcados como não enviados.', '{count} capítulos marcados como no enviados.'],
   'Preparing…': ['Preparando…', 'Preparando…'],
+  'Fill automatically': ['Completar automaticamente', 'Completar automáticamente'],
+  'Link titles whose name matches exactly when you open them. You can change or stop it on the title.': ['Vincula títulos com nome idêntico quando você os abre. Dá para trocar ou parar no próprio título.', 'Vincula títulos con nombre idéntico cuando los abres. Puedes cambiarlo o detenerlo en el título.'],
+  'Filling automatically from {source}: {title}': ['Completando automaticamente de {source}: {title}', 'Completando automáticamente desde {source}: {title}'],
   'Save and send': ['Salvar e enviar', 'Guardar y enviar'],
 };

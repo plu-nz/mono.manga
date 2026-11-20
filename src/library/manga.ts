@@ -4,6 +4,7 @@ import { fetchSourceChapters } from '../providers/weebcentral';
 import { extraAuthHeader } from '../providers/weebcentral/session';
 import { getCachedManga, putCachedManga } from '../storage/manga-cache';
 import { fillChapters } from './fill';
+import { effectiveSourceLink, loadAutoLinks } from './auto-fill';
 import { library, loadLibrary, settings } from './store';
 
 export interface MangaWithChapters {
@@ -57,8 +58,8 @@ export function forgetLinkedChapters(key: string): void {
  * chapters must always load.
  */
 async function linkedChapters(key: string, title: { provider: ProviderId; id: string }, signal?: AbortSignal): Promise<ChapterSummary[]> {
-  await loadLibrary();
-  const link = library[key]?.deleted ? undefined : library[key]?.sources?.weebcentral;
+  await Promise.all([loadLibrary(), loadAutoLinks()]);
+  const link = effectiveSourceLink(key);
   if (!link || !(await extraAuthHeader())) return [];
   const cacheKey = `${key}|${link.id}`;
   const hit = extraCache.get(cacheKey);

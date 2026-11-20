@@ -5,5 +5,7 @@
 - `download-manager.ts`: queue of offline chapter downloads with reactive progress.
 - `recent.ts`: recent searches and recently opened titles shown on the Search screen; kept on this device only, never synced.
 - `new-chapters.ts`: refreshes each favorite's chapter list when the Favorites screen opens (reused for 10 minutes) and derives its count of new chapters — after the last one sent to the Kindle or the one being read.
+- `fill.ts`: merges extra-source chapters into a title's list, only for numbers its provider cannot serve.
+- `auto-fill.ts`: links a title to Weeb Central automatically on an exact title match when it opens; matches stay on this device, and a hand-picked or stopped link always wins.
 
 See the [source index](../README.md).

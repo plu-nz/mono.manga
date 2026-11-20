@@ -2,7 +2,8 @@ import { createSignal, For, Show, createEffect, on } from 'solid-js';
 import { Button, TextField } from '@plunz/storybook';
 import { mangaKey, type MangaDetails, type MangaSummary } from '../core/types';
 import { forgetLinkedChapters } from '../library/manga';
-import { library, setSourceLink } from '../library/store';
+import { setSourceLink } from '../library/store';
+import { effectiveSourceLink } from '../library/auto-fill';
 import { weebCentralProvider, WEEBCENTRAL_NAME } from '../providers/weebcentral';
 import { t } from '../i18n';
 import { Cover, Sheet, errorMessage, toast } from './ui';
@@ -10,7 +11,7 @@ import { Cover, Sheet, errorMessage, toast } from './ui';
 /** Link a title to Weeb Central so its missing chapters are filled from there. */
 export function SourceSheet(props: { open: boolean; onClose: () => void; details: MangaDetails; onChanged: () => void }) {
   const key = () => mangaKey(props.details.provider, props.details.id);
-  const link = () => (library[key()]?.deleted ? undefined : library[key()]?.sources?.weebcentral);
+  const link = () => effectiveSourceLink(key());
   const [query, setQuery] = createSignal('');
   const [results, setResults] = createSignal<MangaSummary[]>();
   const [busy, setBusy] = createSignal(false);
@@ -53,7 +54,9 @@ export function SourceSheet(props: { open: boolean; onClose: () => void; details
         <Show when={link()}>
           {current => (
             <div class="linked-source">
-              <p>{t('Filling from {source}: {title}', { source: WEEBCENTRAL_NAME, title: current().title })}</p>
+              <p>{current().auto
+                ? t('Filling automatically from {source}: {title}', { source: WEEBCENTRAL_NAME, title: current().title })
+                : t('Filling from {source}: {title}', { source: WEEBCENTRAL_NAME, title: current().title })}</p>
               <Button type="button" variant="ghost" size="sm" onClick={() => void choose(undefined)}>{t('Stop filling')}</Button>
             </div>
           )}

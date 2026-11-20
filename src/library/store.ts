@@ -135,8 +135,14 @@ export async function setSourceLink(details: MangaDetails, link: SourceLink | un
   if (!isInLibrary(key)) await addToLibrary(details);
   const current = unwrap(library[key]);
   const sources = { ...current.sources };
-  if (link) sources.weebcentral = { id: link.id, title: link.title };
-  else delete sources.weebcentral;
+  if (link) {
+    sources.weebcentral = { id: link.id, title: link.title };
+    delete sources.declined;
+  } else {
+    // Stopping by hand also keeps automatic matching away from this title.
+    delete sources.weebcentral;
+    sources.declined = true;
+  }
   await putEntry({ ...current, sources: Object.keys(sources).length ? sources : undefined, updatedAt: Date.now() });
 }
 

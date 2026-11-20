@@ -176,7 +176,10 @@ export default function SettingsPage() {
             {current => (
               <>
                 <p>{t('Unlocked for {email}', { email: current().email })}</p>
-                <p class="hint">{t('Open a title and choose “Fill missing chapters” to link it.')}</p>
+                <label class="switch-row">
+                  <span><strong>{t('Fill automatically')}</strong><span class="hint">{t('Link titles whose name matches exactly when you open them. You can change or stop it on the title.')}</span></span>
+                  <input type="checkbox" role="switch" checked={settings.autoFill !== false} onChange={event => void updateSettings({ autoFill: event.currentTarget.checked })} />
+                </label>
                 <div class="button-row">
                   <Button type="button" variant="ghost" size="sm" onClick={() => void lockExtraSources()}>{t('Lock')}</Button>
                 </div>

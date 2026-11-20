@@ -9,6 +9,7 @@ import { extraSourcesUnlocked, unlockExtraSources } from '../../providers/weebce
 import { isGoogleConfigured } from '../../google';
 import { WEEBCENTRAL_NAME } from '../../providers/weebcentral';
 import { SourceSheet } from '../SourceSheet';
+import { autoLinkSource, effectiveSourceLink } from '../../library/auto-fill';
 import { longPress } from '../long-press';
 import {
   effectiveMode,
@@ -58,7 +59,7 @@ export default function MangaPage() {
     setCollapsed(next);
   }
   const [linking, setLinking] = createSignal(false);
-  const sourceLink = () => (library[key()]?.deleted ? undefined : library[key()]?.sources?.weebcentral);
+  const sourceLink = () => effectiveSourceLink(key());
 
   const key = () => (data() ? mangaKey(data()!.details.provider, data()!.details.id) : '');
   const saved = () => isInLibrary(key());
@@ -127,6 +128,13 @@ export default function MangaPage() {
     setSending(true);
     sendSheet?.send(chapters);
   }
+
+  // Once a title loads, look for an exact match on the extra source and reload with the filled chapters.
+  createEffect(() => {
+    const loaded = data();
+    if (!loaded || loaded.offline) return;
+    void autoLinkSource(loaded.details).then(linked => { if (linked) void refetch(); });
+  });
 
   /** Extra sources are open to everyone; the first use signs in with Google inside this tap. */
   function openSourceSheet() {

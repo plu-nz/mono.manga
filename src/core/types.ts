@@ -135,7 +135,11 @@ export interface LibraryEntry extends SyncRecord {
   /** What was already delivered to the user's Kindle, so only new chapters are sent next time. */
   kindle?: KindleSendState;
   /** Extra sources linked to fill chapters the title's provider lacks. */
-  sources?: { weebcentral?: SourceLink };
+  sources?: {
+    weebcentral?: SourceLink;
+    /** The user stopped filling this title; never link it automatically again. */
+    declined?: boolean;
+  };
 }
 
 export interface SourceLink {
@@ -220,6 +224,8 @@ export interface AppSettings extends SyncRecord {
   showMature: boolean;
   /** List chapters newest first on title pages. */
   newestFirst?: boolean;
+  /** Link titles to an extra source automatically when the names match. On unless false. */
+  autoFill?: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
