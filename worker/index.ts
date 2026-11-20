@@ -23,6 +23,7 @@ import {
   chapterListUpstreamUrl,
   isSourceId,
   pagesUpstreamUrl,
+  isAllowed,
   parseAllowlist,
   parsePageImages,
   searchUpstreamUrl,
@@ -48,7 +49,7 @@ export interface Env {
   GOOGLE_CLIENT_ID?: string;
   /** Secret: HMAC key for extra-source sessions and image links. Extra sources are off without it. */
   EXTRA_SOURCES_SECRET?: string;
-  /** Secret: comma-separated Google emails allowed to use extra sources. */
+  /** Optional secret: comma-separated Google emails; when set, only they can use extra sources. */
   EXTRA_SOURCES_EMAILS?: string;
 }
 
@@ -234,7 +235,7 @@ app.get('/api/mangadex/*', async c => {
   return new Response(body, { status: 200, headers });
 });
 
-// --- Extra sources (allowlisted accounts only) ------------------------------------
+// --- Extra sources (any verified Google account) ------------------------------------
 
 const EXTRA_USER_AGENT = USER_AGENT;
 const SEARCH_TTL = 5 * 60;
@@ -259,7 +260,7 @@ app.use('/api/weebcentral/*', async (c, next) => {
   await next();
 });
 
-/** Exchange a Google access token of an allowlisted account for a long-lived session. */
+/** Exchange a verified Google access token for a long-lived session. */
 app.post('/api/extra/session', async c => {
   const limited = await rateLimited(c, c.env.API_LIMIT, 'session');
   if (limited) return limited;
@@ -275,7 +276,7 @@ app.post('/api/extra/session', async c => {
   }
   const email = verifiedEmail(info, c.env.GOOGLE_CLIENT_ID);
   if (!email) return errorResponse(c, 401, 'unauthorized');
-  if (!parseAllowlist(c.env.EXTRA_SOURCES_EMAILS).has(email)) return errorResponse(c, 403, 'not_authorized');
+  if (!isAllowed(parseAllowlist(c.env.EXTRA_SOURCES_EMAILS), email)) return errorResponse(c, 403, 'not_authorized');
   const session = { email, expiresAt: Date.now() + SESSION_TTL_MS };
   return c.json({ token: await signSession(c.env.EXTRA_SOURCES_SECRET!, session), ...session }, 200, { 'cache-control': 'no-store' });
 });

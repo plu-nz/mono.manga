@@ -1,10 +1,10 @@
 /**
- * Extra chapter sources, restricted to an allowlist of Google accounts.
+ * Extra chapter sources, open to any verified Google account.
  *
  * - A verified Google access token is exchanged once for a signed session
  *   (HMAC, long-lived) that the app keeps on the device.
- * - Every relay request needs that session, and the email in it must still be
- *   on the allowlist, so removing an address revokes access.
+ * - Every relay request needs that session. An optional allowlist can narrow
+ *   access to some addresses again; an empty one allows every account.
  * - Page images are served through URLs signed by the Worker, because images
  *   load from <img> tags that cannot send an Authorization header.
  *
@@ -53,12 +53,17 @@ export function parseAllowlist(value: string | undefined): Set<string> {
   return new Set((value ?? '').split(/[\s,;]+/).map(item => item.trim().toLowerCase()).filter(Boolean));
 }
 
+/** An empty allowlist lets every verified account in. */
+export function isAllowed(allowlist: Set<string>, email: string): boolean {
+  return allowlist.size === 0 || allowlist.has(email.toLowerCase());
+}
+
 export async function signSession(secret: string, session: Session): Promise<string> {
   const payload = base64url(encoder.encode(JSON.stringify({ e: session.email, x: session.expiresAt })));
   return `${payload}.${await hmac(secret, 'session', payload)}`;
 }
 
-/** The session in a token when its signature, expiry, and allowlist entry are all valid. */
+/** The session in a token when its signature and expiry are valid and the allowlist (if any) has its email. */
 export async function verifySession(secret: string, token: string, allowlist: Set<string>, now = Date.now()): Promise<Session | undefined> {
   const [payload, signature, extra] = token.split('.');
   if (!payload || !signature || extra !== undefined) return undefined;
@@ -66,7 +71,7 @@ export async function verifySession(secret: string, token: string, allowlist: Se
   try {
     const data = JSON.parse(fromBase64url(payload)) as { e?: unknown; x?: unknown };
     if (typeof data.e !== 'string' || typeof data.x !== 'number' || data.x <= now) return undefined;
-    if (!allowlist.has(data.e.toLowerCase())) return undefined;
+    if (!isAllowed(allowlist, data.e)) return undefined;
     return { email: data.e, expiresAt: data.x };
   } catch {
     return undefined;

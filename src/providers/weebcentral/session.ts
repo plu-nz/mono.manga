@@ -3,8 +3,8 @@ import { getAccessToken } from '../../google/auth';
 import { getKv, setKv } from '../../storage/db';
 
 /**
- * Access to extra chapter sources. The Worker only serves them to allowlisted
- * Google accounts: a Google access token is exchanged once for a signed
+ * Access to extra chapter sources. The Worker serves them to any signed-in
+ * Google account: a Google access token is exchanged once for a signed
  * session, kept on this device and never synced.
  */
 

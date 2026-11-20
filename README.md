@@ -56,9 +56,9 @@ Do not send `Cross-Origin-Opener-Policy: same-origin`, because it breaks the Goo
 
 ## Extra chapter sources
 
-Titles can be linked to Weeb Central to fill chapters their provider lacks (gaps, or licensed chapters MangaDex only links to). The Worker relays it only for allowlisted Google accounts:
+Titles can be linked to Weeb Central to fill chapters their provider lacks (gaps, or licensed chapters MangaDex only links to). It is open to everyone: the first use signs in with Google, and the Worker relays it only for that signed session:
 
-- `POST /api/extra/session` takes a Google access token, checks `tokeninfo` (audience must be `GOOGLE_CLIENT_ID`, email verified, email in `EXTRA_SOURCES_EMAILS`) and returns an HMAC-signed session valid for 180 days. Every relay request re-checks the allowlist, so removing an email revokes access.
+- `POST /api/extra/session` takes a Google access token, checks `tokeninfo` (audience must be `GOOGLE_CLIENT_ID`, email verified) and returns an HMAC-signed session valid for 180 days. Any verified account is accepted. Setting the optional `EXTRA_SOURCES_EMAILS` secret narrows access to those addresses again; every relay request re-checks it, and rotating `EXTRA_SOURCES_SECRET` revokes all sessions.
 - `/api/weebcentral/search` and `/series/:id/chapters` relay HTML as `text/plain` (parsed in the app); `/chapters/:id/pages` returns Worker-signed image URLs served by `/api/weebcentral/image`.
 - Filled chapters keep the title's provider and id and set `source: 'weebcentral'`, so read marks, downloads, Kindle state, and AniList keep working per title.
 
@@ -66,6 +66,7 @@ Setup (secrets, never committed):
 
 ```sh
 openssl rand -base64 32 | pnpm exec wrangler secret put EXTRA_SOURCES_SECRET
+# Optional: restrict to some accounts
 pnpm exec wrangler secret put EXTRA_SOURCES_EMAILS   # comma-separated Google emails
 ```
 

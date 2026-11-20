@@ -5,7 +5,7 @@ import { extraAuthHeader } from './session';
 
 /**
  * Weeb Central, used only to fill chapters missing from a title's provider.
- * Requests go through the Worker, which serves them to allowlisted accounts.
+ * Requests go through the Worker, which serves them to signed-in accounts.
  */
 
 const BASE = '/api/weebcentral';

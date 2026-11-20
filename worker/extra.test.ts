@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { app, type Env } from './index';
-import { parseAllowlist, parsePageImages, signImageUrl, signSession, verifiedEmail, verifyImageUrl, verifySession } from './extra';
+import { isAllowed, parseAllowlist, parsePageImages, signImageUrl, signSession, verifiedEmail, verifyImageUrl, verifySession } from './extra';
 
 const SECRET = 'test-secret';
 const SERIES = '01J76XY7VSG3R5ANYPDWTXDVP6';
@@ -63,6 +63,12 @@ describe('extra source rules', () => {
     expect(await verifySession(SECRET, await session('reader@example.com', Date.now() - 1), allow)).toBeUndefined();
   });
 
+  test('an empty allowlist lets every verified account in', async () => {
+    expect(isAllowed(parseAllowlist(undefined), 'anyone@example.com')).toBe(true);
+    expect(isAllowed(parseAllowlist('a@example.com'), 'B@example.com')).toBe(false);
+    expect(await verifySession(SECRET, await session('stranger@example.com'), parseAllowlist(''))).toMatchObject({ email: 'stranger@example.com' });
+  });
+
   test('accepts only verified Google tokens issued to this app', () => {
     expect(verifiedEmail({ email: 'A@b.c', email_verified: 'true', aud: 'client-1' }, 'client-1')).toBe('a@b.c');
     expect(verifiedEmail({ email: 'a@b.c', email_verified: 'true', aud: 'someone-else' }, 'client-1')).toBeUndefined();
@@ -91,6 +97,12 @@ describe('extra source routes', () => {
     expect((await call('/api/extra/session', { method: 'POST', headers: { authorization: 'Bearer stranger' } })).status).toBe(403);
     expect((await call('/api/extra/session', { method: 'POST', headers: { authorization: 'Bearer bad' } })).status).toBe(401);
     expect((await call('/api/extra/session', { method: 'POST' })).status).toBe(401);
+  });
+
+  test('opens sessions to any verified account without an allowlist', async () => {
+    const bindings = env({ EXTRA_SOURCES_EMAILS: undefined });
+    expect((await call('/api/extra/session', { method: 'POST', headers: { authorization: 'Bearer stranger' } }, bindings)).status).toBe(200);
+    expect((await call('/api/extra/session', { method: 'POST', headers: { authorization: 'Bearer bad' } }, bindings)).status).toBe(401);
   });
 
   test('is off without the secret', async () => {

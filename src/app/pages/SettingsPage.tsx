@@ -166,7 +166,7 @@ export default function SettingsPage() {
       <Show when={isGoogleConfigured()}>
         <section class="settings-section" id="extra-sources" aria-labelledby="extra-heading">
           <h2 id="extra-heading">{t('Extra chapter sources')}</h2>
-          <p class="hint">{t('Fills chapters missing from a title with another source. Available only to authorized accounts.')}</p>
+          <p class="hint">{t('Fills chapters missing from a title with another source. Sign in with Google to turn it on.')}</p>
           <Show when={extraSession()} fallback={
             <Button type="button" variant="outline" disabled={busy()} onClick={() => void withBusy(async () => {
               const unlocked = await unlockExtraSources();

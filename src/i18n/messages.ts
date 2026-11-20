@@ -86,7 +86,7 @@ export const translations: Record<string, readonly [string, string]> = {
   'Mark as unread': ['Marcar como não lido', 'Marcar como no leído'],
   'Tracking': ['Acompanhamento', 'Seguimiento'],
   'Extra chapter sources': ['Fontes extras de capítulos', 'Fuentes extra de capítulos'],
-  'Fills chapters missing from a title with another source. Available only to authorized accounts.': ['Completa os capítulos que faltam num título usando outra fonte. Disponível só para contas autorizadas.', 'Completa los capítulos que faltan en un título con otra fuente. Disponible solo para cuentas autorizadas.'],
+  'Fills chapters missing from a title with another source. Sign in with Google to turn it on.': ['Completa os capítulos que faltam num título usando outra fonte. Entre com o Google para ativar.', 'Completa los capítulos que faltan en un título con otra fuente. Inicia sesión con Google para activarlo.'],
   'Unlock with Google': ['Liberar com Google', 'Desbloquear con Google'],
   'Extra sources unlocked for {email}': ['Fontes extras liberadas para {email}', 'Fuentes extra desbloqueadas para {email}'],
   'Unlocked for {email}': ['Liberado para {email}', 'Desbloqueado para {email}'],

@@ -5,7 +5,8 @@ import { chapterLabel, mangaKey, type ChapterSummary, type ReadingMode } from '.
 import { groupByVolume, loadManga } from '../../library/manga';
 import { addRecentTitle } from '../../library/recent';
 import { reportReadToTracker, syncTitleWithTracker } from '../../trackers/sync';
-import { extraSourcesUnlocked } from '../../providers/weebcentral/session';
+import { extraSourcesUnlocked, unlockExtraSources } from '../../providers/weebcentral/session';
+import { isGoogleConfigured } from '../../google';
 import { WEEBCENTRAL_NAME } from '../../providers/weebcentral';
 import { SourceSheet } from '../SourceSheet';
 import { longPress } from '../long-press';
@@ -127,6 +128,12 @@ export default function MangaPage() {
     sendSheet?.send(chapters);
   }
 
+  /** Extra sources are open to everyone; the first use signs in with Google inside this tap. */
+  function openSourceSheet() {
+    if (extraSourcesUnlocked()) { setLinking(true); return; }
+    unlockExtraSources().then(() => setLinking(true), error => toast(errorMessage(error)));
+  }
+
   /** Press and hold on a Kindle button: mark the chapters as sent, or clear the mark when all of them have it. */
   function toggleSent(chapters: ChapterSummary[]) {
     const loaded = data();
@@ -229,9 +236,9 @@ export default function MangaPage() {
               </select>
             </div>
 
-            <Show when={extraSourcesUnlocked() && loaded().details.provider !== 'local'}>
+            <Show when={isGoogleConfigured() && loaded().details.provider !== 'local'}>
               <div class="fill-row">
-                <Button type="button" size="sm" variant="outline" onClick={() => setLinking(true)}>
+                <Button type="button" size="sm" variant="outline" onClick={openSourceSheet}>
                   <Icon name="plus" size={18} /> {sourceLink() ? t('Filling from {source}', { source: WEEBCENTRAL_NAME }) : t('Fill missing chapters')}
                 </Button>
               </div>
