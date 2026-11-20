@@ -1,5 +1,4 @@
-import { createStore } from 'solid-js/store';
-import { createSignal } from 'solid-js';
+import { createSignal, createStore } from 'solid-js';
 import type { ChapterSummary, MangaKey } from '../core/types';
 import { pickNewChapters, baselineNumber } from '../kindle/auto';
 import { loadManga } from './manga';
@@ -19,6 +18,9 @@ interface ChapterList {
 const [lists, setLists] = createStore<Record<MangaKey, ChapterList>>({});
 const [checking, setChecking] = createSignal(false);
 export { checking as checkingNewChapters };
+// The same flag for the guard: a signal write shows on the next flush, so two
+// calls in one tick would both see it unset.
+let running = false;
 
 /** Lists younger than this are reused when the Library opens again. */
 const FRESH_FOR = 10 * 60 * 1000;
@@ -39,12 +41,14 @@ export function totalNewChapters(): number {
 }
 
 export async function refreshNewChapters(options: { force?: boolean } = {}): Promise<void> {
-  if (checking()) return;
+  if (running) return;
   // The Favorites screen can mount before the library finishes loading on a cold start.
   await loadLibrary();
+  if (running) return;
   const now = Date.now();
   const due = libraryEntries().filter(entry => entry.favorite && (options.force || !lists[entry.key] || now - lists[entry.key].checkedAt > FRESH_FOR));
   if (!due.length) return;
+  running = true;
   setChecking(true);
   try {
     let cursor = 0;
@@ -54,7 +58,7 @@ export async function refreshNewChapters(options: { force?: boolean } = {}): Pro
         try {
           // Falls back to the offline copy when the network is unavailable.
           const { chapters } = await loadManga(entry.provider, entry.mangaId);
-          setLists(entry.key, { chapters, checkedAt: Date.now() });
+          setLists(draft => { draft[entry.key] = { chapters, checkedAt: Date.now() }; });
         } catch {
           // Keep the previous list; the title simply shows no count.
         }
@@ -62,6 +66,7 @@ export async function refreshNewChapters(options: { force?: boolean } = {}): Pro
     };
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, due.length) }, worker));
   } finally {
+    running = false;
     setChecking(false);
   }
 }

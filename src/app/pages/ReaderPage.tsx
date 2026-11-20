@@ -1,5 +1,5 @@
-import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show } from 'solid-js';
-import { A, useNavigate, useParams } from '@solidjs/router';
+import { createEffect, createMemo, createSignal, For, onCleanup, onSettled, Show, untrack } from 'solid-js';
+import { useNavigate, useParams } from '@solidjs/router';
 import { Button } from '@plunz/storybook';
 import { chapterLabel, mangaKey, type ReadingMode } from '../../core/types';
 import { adjacentChapter, loadManga } from '../../library/manga';
@@ -10,16 +10,17 @@ import { isProviderId } from '../../providers';
 import { t } from '../../i18n';
 import { EmptyState, IconButton, errorMessage } from '../ui';
 import { modeLabel } from './MangaPage';
+import { createLoaded } from '../loaded';
 
 const PRELOAD_AHEAD = 3;
 
 /** Lazily resolves a page handle to an image, switching to the fallback URL once on error. */
 function PageImage(props: { handle: PageHandle; eager?: boolean; alt: string; class?: string; onLoad?: () => void }) {
-  const [src] = createResource(() => props.handle, handle => handle.src());
+  const src = createLoaded(() => props.handle, handle => handle.src());
   const [useFallback, setUseFallback] = createSignal(false);
   const [failed, setFailed] = createSignal(false);
   return (
-    <Show when={!failed()} fallback={<div class="page-error" role="img" aria-label={props.alt}>{t('This page could not be loaded.')}</div>}>
+    <Show when={!failed() && !src.error()} fallback={<div class="page-error" role="img" aria-label={props.alt}>{t('This page could not be loaded.')}</div>}>
       <Show when={src()} fallback={<div class="page-placeholder" aria-hidden="true" />}>
         <img
           class={props.class}
@@ -27,7 +28,7 @@ function PageImage(props: { handle: PageHandle; eager?: boolean; alt: string; cl
           alt={props.alt}
           loading={props.eager ? 'eager' : 'lazy'}
           decoding="async"
-          draggable={false}
+          draggable="false"
           onLoad={() => props.onLoad?.()}
           onError={() => (props.handle.fallback && !useFallback() ? setUseFallback(true) : setFailed(true))}
         />
@@ -39,12 +40,12 @@ function PageImage(props: { handle: PageHandle; eager?: boolean; alt: string; cl
 export default function ReaderPage() {
   const params = useParams<{ provider: string; mangaId: string; chapterId: string }>();
   const navigate = useNavigate();
-  const [manga] = createResource(
+  const manga = createLoaded(
     () => (isProviderId(params.provider) ? { provider: params.provider, id: decodeURIComponent(params.mangaId) } : undefined),
     source => loadManga(source.provider, source.id),
   );
   const chapter = createMemo(() => manga()?.chapters.find(item => item.id === decodeURIComponent(params.chapterId)));
-  const [pages] = createResource(chapter, item => loadChapterPages(item, { dataSaver: settings.dataSaver }));
+  const pages = createLoaded(chapter, item => loadChapterPages(item, { dataSaver: settings.dataSaver }));
   const key = () => (manga() ? mangaKey(manga()!.details.provider, manga()!.details.id) : '');
   const [modeOverride, setModeOverride] = createSignal<ReadingMode>();
   const mode = (): ReadingMode => modeOverride() ?? (manga() ? effectiveMode(key(), manga()!.details.defaultMode) : 'rtl');
@@ -57,29 +58,44 @@ export default function ReaderPage() {
   const atEnd = () => page() >= count();
 
   // Start where the user stopped when reopening the same chapter.
-  createEffect(on(pages, list => {
-    if (!list) return;
-    const saved = progress[key()];
-    const start = saved && !saved.deleted && saved.chapterId === chapter()?.id ? Math.min(saved.page, list.length - 1) : 0;
-    setPage(Math.max(0, start));
-    if (mode() === 'vertical' && start > 0) requestAnimationFrame(() => document.getElementById(`page-${start}`)?.scrollIntoView());
-  }));
+  // Only a new page list decides this: the saved progress and the mode are
+  // read once for it, so saving progress never moves the reader.
+  createEffect(
+    () => {
+      const list = pages();
+      if (!list) return undefined;
+      return untrack(() => {
+        const saved = progress[key()];
+        const start = saved && !saved.deleted && saved.chapterId === chapter()?.id ? Math.min(saved.page, list.length - 1) : 0;
+        return { start: Math.max(0, start), vertical: mode() === 'vertical' };
+      });
+    },
+    opening => {
+      if (!opening) return;
+      setPage(opening.start);
+      if (opening.vertical && opening.start > 0) requestAnimationFrame(() => document.getElementById(`page-${opening.start}`)?.scrollIntoView());
+    },
+  );
 
-  onCleanup(() => pages()?.forEach(handle => handle.release()));
-  createEffect(on(pages, (_list, previousList) => previousList?.forEach(handle => handle.release())));
+  // Pages hold object URLs: release a list once another replaces it, and on leaving.
+  let shownPages: PageHandle[] | undefined;
+  createEffect(pages, list => {
+    if (shownPages && shownPages !== list) shownPages.forEach(handle => handle.release());
+    shownPages = list;
+  });
+  onCleanup(() => shownPages?.forEach(handle => handle.release()));
 
   // Persist progress shortly after the page settles.
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
-  createEffect(on([page, pages], ([current, list]) => {
-    const item = chapter();
-    if (!list || !item || !manga()) return;
+  createEffect(() => ({ current: page(), list: pages(), item: chapter(), title: manga() }), ({ current, list, item, title }) => {
+    if (!list || !item || !title) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       const finished = list.length > 0 && current >= list.length - 1;
       void saveProgress({ key: key(), chapter: item, chapterLabel: chapterLabel({ ...item, title: undefined }), page: Math.min(current, list.length - 1), pageCount: list.length })
         .then(() => { if (finished && manga()) reportReadToTracker(manga()!.details, manga()!.chapters); });
     }, 600);
-  }));
+  });
   onCleanup(() => clearTimeout(saveTimer));
 
   function go(step: number) {
@@ -112,8 +128,10 @@ export default function ReaderPage() {
     else if (event.key === ' ' || event.key === 'PageDown') { event.preventDefault(); go(1); }
     else if (event.key === 'PageUp') { event.preventDefault(); go(-1); }
   }
-  onMount(() => window.addEventListener('keydown', onKey));
-  onCleanup(() => window.removeEventListener('keydown', onKey));
+  onSettled(() => {
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   // Swipe handling for paged modes.
   let startX = 0;
@@ -162,7 +180,7 @@ export default function ReaderPage() {
   });
 
   return (
-    <div class="reader" classList={{ 'chrome-hidden': !chrome(), [`mode-${mode()}`]: true }}>
+    <div class={["reader", { 'chrome-hidden': !chrome(), [`mode-${mode()}`]: true }]}>
       <header class="reader-bar top">
         <IconButton icon="back" label={t('Back to title')} onClick={() => navigate(`/manga/${params.provider}/${params.mangaId}`)} />
         <div class="reader-title">
@@ -177,13 +195,13 @@ export default function ReaderPage() {
         </select>
       </header>
 
-      <Show when={manga.error || pages.error}>
+      <Show when={manga.error() || pages.error()}>
         <EmptyState icon="library" title={t('Could not open this chapter')}>
-          <p>{errorMessage(manga.error ?? pages.error)}</p>
-          <A href={`/manga/${params.provider}/${params.mangaId}`}>{t('Back to title')}</A>
+          <p>{errorMessage(manga.error() ?? pages.error())}</p>
+          <a href={`/manga/${params.provider}/${params.mangaId}`}>{t('Back to title')}</a>
         </EmptyState>
       </Show>
-      <Show when={(manga.loading || pages.loading) && !pages()}><p class="reader-loading" role="status">{t('Loading…')}</p></Show>
+      <Show when={(manga.loading() || pages.loading()) && !pages()}><p class="reader-loading" role="status">{t('Loading…')}</p></Show>
 
       <Show when={pages()}>
         {list => (
@@ -194,7 +212,7 @@ export default function ReaderPage() {
               }>
                 <For each={visibleHandles()}>
                   {handle => (
-                    <div class="paged-slide" classList={{ current: handle.index === page() }} aria-hidden={handle.index !== page()}>
+                    <div class={["paged-slide", { current: handle.index === page() }]} aria-hidden={handle.index !== page() ? 'true' : undefined}>
                       <PageImage handle={handle} eager alt={t('Page {page} of {count}', { page: handle.index + 1, count: list().length })} />
                     </div>
                   )}
@@ -246,7 +264,7 @@ function EndOfChapter(props: { next?: string; label?: string; onNext: (id: strin
   return (
     <div class="end-of-chapter" onPointerUp={event => event.stopPropagation()} onClick={event => event.stopPropagation()}>
       <p>{t('End of chapter')}</p>
-      <Show when={props.next} fallback={<><p class="muted">{t('You are up to date.')}</p><A class="plz-button plz-button--outline plz-button--md" href={props.back}>{t('Back to title')}</A></>}>
+      <Show when={props.next} fallback={<><p class="muted">{t('You are up to date.')}</p><a class="plz-button plz-button--outline plz-button--md" href={props.back}>{t('Back to title')}</a></>}>
         <Button type="button" onClick={() => props.onNext(props.next!)}>{t('Next: {chapter}', { chapter: props.label ?? '' })}</Button>
       </Show>
     </div>

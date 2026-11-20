@@ -1,6 +1,6 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
-import solid from 'vite-plugin-solid';
+import solid from '@solidjs/vite-plugin';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
@@ -45,4 +45,9 @@ export default defineConfig({
   worker: { format: 'es' },
   server: { proxy: { '/api': 'http://127.0.0.1:8787' } },
   test: { environment: 'jsdom', globals: true, setupFiles: ['src/test/setup.ts'], include: ['src/**/*.test.ts', 'worker/**/*.test.ts'] },
+  // Tests run Solid's client build: under Node, solid-js resolves to its
+  // server build, where signal and store writes are inert.
+  ...(process.env.VITEST
+    ? { resolve: { conditions: ['browser', 'development'] }, ssr: { resolve: { conditions: ['browser', 'development'] } } }
+    : {}),
 });

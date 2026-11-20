@@ -1,5 +1,4 @@
-import { createMemo, createResource, For, Show } from 'solid-js';
-import { A } from '@solidjs/router';
+import { createMemo, For, Show } from 'solid-js';
 import { Button } from '@plunz/storybook';
 import { chapterLabel } from '../../core/types';
 import { listDownloads } from '../../storage/downloads';
@@ -7,10 +6,11 @@ import { storageEstimate } from '../../storage/db';
 import { cancelDownloads, downloadStates, downloadsVersion, removeDownload } from '../../library/download-manager';
 import { formatBytes, t, tn } from '../../i18n';
 import { EmptyState, IconButton, ProgressBar } from '../ui';
+import { createLoaded } from '../loaded';
 
 export default function DownloadsPage() {
-  const [records, { refetch }] = createResource(downloadsVersion, () => listDownloads());
-  const [estimate] = createResource(downloadsVersion, () => storageEstimate());
+  const records = createLoaded(downloadsVersion, () => listDownloads());
+  const estimate = createLoaded(downloadsVersion, () => storageEstimate());
   const groups = createMemo(() => {
     const map = new Map<string, { title: string; mangaKey: string; items: NonNullable<ReturnType<typeof records>> }>();
     for (const record of records() ?? []) {
@@ -23,7 +23,7 @@ export default function DownloadsPage() {
 
   async function remove(key: string) {
     await removeDownload(key);
-    await refetch();
+    records.refetch();
   }
 
   return (
@@ -54,7 +54,7 @@ export default function DownloadsPage() {
       <For each={groups()}>
         {group => (
           <div class="download-group">
-            <h2><A href={`/manga/${group.mangaKey.replace(':', '/')}`}>{group.title}</A></h2>
+            <h2><a href={`/manga/${group.mangaKey.replace(':', '/')}`}>{group.title}</a></h2>
             <ul class="chapters">
               <For each={group.items}>
                 {record => (

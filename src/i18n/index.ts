@@ -28,7 +28,7 @@ const state = createRoot(() => {
     window.addEventListener('languagechange', () => setSystemLocale(detectLocale()));
     window.addEventListener('focus', () => setPreference(readPreference()));
     window.addEventListener('pageshow', () => setPreference(readPreference()));
-    createEffect(() => { document.documentElement.lang = locale(); });
+    createEffect(locale, value => { document.documentElement.lang = value; });
   }
   return { preference, setPreference, locale };
 });

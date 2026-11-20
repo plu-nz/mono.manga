@@ -1,5 +1,6 @@
-import { lazy, onMount, Show, type JSX } from 'solid-js';
-import { A, Route, Router, useLocation } from '@solidjs/router';
+import { lazy, Loading, onSettled, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { createRouter, useLocation } from '@solidjs/router';
 import { Theme, Button } from '@plunz/storybook';
 import { useRegisterSW } from 'virtual:pwa-register/solid';
 import { loadLibrary } from '../library/store';
@@ -18,16 +19,30 @@ const DownloadsPage = lazy(() => import('./pages/DownloadsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const AniListCallbackPage = lazy(() => import('./pages/AniListCallbackPage'));
 
-function NavLink(props: { href: string; icon: IconName; label: string; badge?: number; end?: boolean; onClick?: () => void }) {
+const Router = createRouter({
+  routes: [
+    { path: '/', component: LibraryPage },
+    { path: '/search', component: SearchPage },
+    { path: '/manga/:provider/:id', component: MangaPage },
+    { path: '/read/:provider/:mangaId/:chapterId', component: ReaderPage },
+    { path: '/downloads', component: DownloadsPage },
+    { path: '/settings', component: SettingsPage },
+    { path: '/auth/anilist', component: AniListCallbackPage },
+    { path: '*rest', component: LibraryPage },
+  ],
+});
+
+/** A bottom-bar link; the router marks the current section with `data-active`. */
+function NavLink(props: { href: string; icon: IconName; label: string; badge?: number; onClick?: () => void }) {
   return (
-    <A href={props.href} end={props.end} class="nav-link" activeClass="active" onClick={() => props.onClick?.()}>
+    <a href={props.href} class="nav-link" onClick={() => props.onClick?.()}>
       <span class="nav-icon">
         <Icon name={props.icon} />
         <Show when={props.badge}><span class="nav-badge" aria-hidden="true">{props.badge}</span></Show>
       </span>
       <span>{props.label}</span>
       <Show when={props.badge}><span class="sr-only">{t('{count} new', { count: props.badge ?? 0 })}</span></Show>
-    </A>
+    </a>
   );
 }
 
@@ -39,7 +54,8 @@ function Shell(props: { children?: JSX.Element }) {
   return (
     <Theme class="app" accent="orange" shape="square">
       <a class="skip-link" href="#main">{t('Skip to content')}</a>
-      <main id="main" class={inReader() ? 'main reader-main' : 'main'}>{props.children}</main>
+      {/* Screens load on demand; the bar stays while one arrives. */}
+      <main id="main" class={inReader() ? 'main reader-main' : 'main'}><Loading>{props.children}</Loading></main>
       <Show when={needRefresh()}>
         <div class="update-banner" role="status">
           <span>{t('A new version is ready.')}</span>
@@ -50,7 +66,6 @@ function Shell(props: { children?: JSX.Element }) {
         <nav class="bottom-nav" aria-label={t('Main')}>
           <NavLink
             href="/"
-            end
             icon="library"
             label={t('Library')}
             badge={totalNewChapters()}
@@ -68,21 +83,10 @@ function Shell(props: { children?: JSX.Element }) {
 }
 
 export default function App() {
-  onMount(() => {
+  onSettled(() => {
     void loadLibrary().then(() => initSync());
     void loadDownloadStates();
     void loadExtraSession();
   });
-  return (
-    <Router root={Shell}>
-      <Route path="/" component={LibraryPage} />
-      <Route path="/search" component={SearchPage} />
-      <Route path="/manga/:provider/:id" component={MangaPage} />
-      <Route path="/read/:provider/:mangaId/:chapterId" component={ReaderPage} />
-      <Route path="/downloads" component={DownloadsPage} />
-      <Route path="/settings" component={SettingsPage} />
-      <Route path="/auth/anilist" component={AniListCallbackPage} />
-      <Route path="*" component={LibraryPage} />
-    </Router>
-  );
+  return <Router>{props => <Shell>{props.children}</Shell>}</Router>;
 }

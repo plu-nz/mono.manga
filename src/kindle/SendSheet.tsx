@@ -1,5 +1,4 @@
-import { createMemo, createSignal, onMount, Show } from 'solid-js';
-import { A } from '@solidjs/router';
+import { createMemo, createSignal, onSettled, Show } from 'solid-js';
 import { Button, TextField } from '@plunz/storybook';
 import type { ChapterSummary, MangaDetails, ReadingMode } from '../core/types';
 import { getKindleProfile } from './profiles';
@@ -38,7 +37,7 @@ export function SendSheet(props: {
   /** What "Try again" repeats after an error. */
   let retry: () => Promise<void> = () => run();
   // Load Google's script early so the Gmail popup can open inside the tap.
-  onMount(() => { if (isGoogleConfigured()) void preloadGoogle(); });
+  onSettled(() => { if (isGoogleConfigured()) void preloadGoogle(); });
 
   const pageTotal = createMemo(() => chapters().reduce((sum, chapter) => sum + (chapter.externalUrl ? 0 : chapter.pages), 0));
   const profile = createMemo(() => getKindleProfile(settings.kindleModel));
@@ -150,7 +149,7 @@ export function SendSheet(props: {
       <div class="stack">
         <p class="muted">
           {tn(chapters().length, '{count} chapter', '{count} chapters')} · {tn(pageTotal(), '{count} page', '{count} pages')} · {profile().name}
-          {' '}<A href="/settings#kindle" onClick={close}>{t('Change')}</A>
+          {' '}<a href="/settings#kindle" onClick={close}>{t('Change')}</a>
         </p>
 
         <Show when={phase() === 'converting'}>

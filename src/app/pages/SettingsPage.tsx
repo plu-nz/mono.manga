@@ -1,4 +1,4 @@
-import { createResource, createSignal, For, onMount, Show } from 'solid-js';
+import { createSignal, For, onSettled, Show } from 'solid-js';
 import { Button, TextField } from '@plunz/storybook';
 import type { ReadingMode } from '../../core/types';
 import { settings, updateSettings } from '../../library/store';
@@ -10,6 +10,7 @@ import { googleState, isSyncEnabled, lastSync, setSyncEnabled, syncNow, syncStat
 import { requestPersistentStorage, storageEstimate } from '../../storage/db';
 import { changeLanguage, formatBytes, languageName, preference, t, type Preference } from '../../i18n';
 import { errorMessage, toast } from '../ui';
+import { createLoaded } from '../loaded';
 import { extraSession, lockExtraSources, unlockExtraSources } from '../../providers/weebcentral/session';
 import { aniListAccount, connectAniList, disconnectAniList, isAniListConfigured, loadAniList } from '../../trackers/anilist';
 import { modeLabel } from './MangaPage';
@@ -24,9 +25,10 @@ export default function SettingsPage() {
   const [emailError, setEmailError] = createSignal<string>();
   const [busy, setBusy] = createSignal(false);
   const [syncOn, setSyncOn] = createSignal(isSyncEnabled());
-  const [estimate, { refetch: refetchEstimate }] = createResource(() => storageEstimate());
+  const estimate = createLoaded(() => true, () => storageEstimate());
+  const refetchEstimate = estimate.refetch;
   const [persisted, setPersisted] = createSignal<boolean>();
-  onMount(() => { if (isGoogleConfigured()) void preloadGoogle(); void loadAniList(); });
+  onSettled(() => { if (isGoogleConfigured()) void preloadGoogle(); void loadAniList(); });
 
   function toggleLanguage(tag: string) {
     const current = [...settings.languages];
@@ -232,7 +234,7 @@ export default function SettingsPage() {
       <section class="settings-section" aria-labelledby="storage-heading">
         <h2 id="storage-heading">{t('Storage')}</h2>
         <Show when={estimate()}>{value => <p class="muted">{t('Using {used} of about {quota} available on this device.', { used: formatBytes(value().usage), quota: formatBytes(value().quota) })}</p>}</Show>
-        <Button type="button" variant="outline" size="sm" onClick={() => void requestPersistentStorage().then(value => { setPersisted(value); void refetchEstimate(); })}>{t('Keep offline data')}</Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => void requestPersistentStorage().then(value => { setPersisted(value); refetchEstimate(); })}>{t('Keep offline data')}</Button>
         <Show when={persisted() !== undefined}>
           <p class="hint">{persisted() ? t('This browser will keep offline chapters unless you remove them.') : t('This browser may remove offline chapters when space runs low. Installing the app helps.')}</p>
         </Show>

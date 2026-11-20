@@ -20,9 +20,22 @@ const TITLES_KEY = 'recent.titles';
 const MAX_SEARCHES = 8;
 const MAX_TITLES = 12;
 
-const [recentSearches, setRecentSearches] = createSignal<string[]>([]);
-const [recentTitles, setRecentTitles] = createSignal<RecentTitle[]>([]);
+const [recentSearches, setRecentSearchesSignal] = createSignal<string[]>([]);
+const [recentTitles, setRecentTitlesSignal] = createSignal<RecentTitle[]>([]);
 export { recentSearches, recentTitles };
+
+// The same lists for building the next one: a signal write shows on the next
+// flush, so two changes in one tick would otherwise drop the first.
+let searchesNow: string[] = [];
+let titlesNow: RecentTitle[] = [];
+function setRecentSearches(next: string[]): void {
+  searchesNow = next;
+  setRecentSearchesSignal(next);
+}
+function setRecentTitles(next: RecentTitle[]): void {
+  titlesNow = next;
+  setRecentTitlesSignal(next);
+}
 
 let loading: Promise<void> | undefined;
 
@@ -39,14 +52,14 @@ export async function addRecentSearch(query: string): Promise<void> {
   const text = query.trim();
   if (!text) return;
   await loadRecent();
-  const next = [text, ...recentSearches().filter(item => item.toLowerCase() !== text.toLowerCase())].slice(0, MAX_SEARCHES);
+  const next = [text, ...searchesNow.filter(item => item.toLowerCase() !== text.toLowerCase())].slice(0, MAX_SEARCHES);
   setRecentSearches(next);
   await setKv(SEARCHES_KEY, next);
 }
 
 export async function removeRecentSearch(query: string): Promise<void> {
   await loadRecent();
-  const next = recentSearches().filter(item => item !== query);
+  const next = searchesNow.filter(item => item !== query);
   setRecentSearches(next);
   await setKv(SEARCHES_KEY, next);
 }
@@ -54,7 +67,7 @@ export async function removeRecentSearch(query: string): Promise<void> {
 export async function addRecentTitle(details: MangaDetails): Promise<void> {
   await loadRecent();
   const item: RecentTitle = { provider: details.provider, id: details.id, title: details.title, coverUrl: details.coverUrl, openedAt: Date.now() };
-  const next = [item, ...recentTitles().filter(title => !(title.provider === item.provider && title.id === item.id))].slice(0, MAX_TITLES);
+  const next = [item, ...titlesNow.filter(title => !(title.provider === item.provider && title.id === item.id))].slice(0, MAX_TITLES);
   setRecentTitles(next);
   await setKv(TITLES_KEY, next);
 }

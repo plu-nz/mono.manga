@@ -1,4 +1,4 @@
-import { createStore } from 'solid-js/store';
+import { createStore } from 'solid-js';
 import { mangaKey, type MangaDetails, type MangaSummary, type SourceLink } from '../core/types';
 import { getKv, setKv } from '../storage/db';
 import { weebCentralProvider } from '../providers/weebcentral';
@@ -24,17 +24,25 @@ export const RETRY_MISS_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_QUERIES = 2;
 
 const [autoLinks, setAutoLinks] = createStore<Record<string, AutoLinkRecord>>({});
+// The same links as plain data, saved right after a write: a store write only
+// shows on the next flush.
+const autoLinksNow: Record<string, AutoLinkRecord> = {};
 let loading: Promise<void> | undefined;
 const pending = new Map<string, Promise<boolean>>();
 
 export function loadAutoLinks(): Promise<void> {
-  loading ??= getKv<Record<string, AutoLinkRecord>>(KV_KEY).then(saved => { if (saved) setAutoLinks(saved); });
+  loading ??= getKv<Record<string, AutoLinkRecord>>(KV_KEY).then(saved => {
+    if (!saved) return;
+    Object.assign(autoLinksNow, saved);
+    setAutoLinks(draft => { Object.assign(draft, saved); });
+  });
   return loading;
 }
 
 async function saveAutoLink(key: string, record: AutoLinkRecord): Promise<void> {
-  setAutoLinks(key, record);
-  await setKv(KV_KEY, JSON.parse(JSON.stringify(autoLinks)));
+  autoLinksNow[key] = record;
+  setAutoLinks(draft => { draft[key] = record; });
+  await setKv(KV_KEY, JSON.parse(JSON.stringify(autoLinksNow)));
 }
 
 /** Auto-fill is on unless the user turned it off in Settings. */
@@ -85,11 +93,11 @@ export function autoLinkSource(details: MangaDetails, signal?: AbortSignal): Pro
   const running = pending.get(key);
   if (running) return running;
   const task = (async () => {
-    if (details.provider === 'local' || !autoFillEnabled() || !extraSourcesUnlocked()) return false;
     await loadAutoLinks();
+    if (details.provider === 'local' || !autoFillEnabled() || !extraSourcesUnlocked()) return false;
     const sources = library[key]?.deleted ? undefined : library[key]?.sources;
     if (sources?.weebcentral || sources?.declined) return false;
-    const known = autoLinks[key];
+    const known = autoLinksNow[key];
     if (known?.link || (known && Date.now() - known.at < RETRY_MISS_AFTER_MS)) return false;
     const names = searchNames(details);
     for (const name of names.slice(0, MAX_QUERIES)) {

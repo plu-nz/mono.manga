@@ -4,3 +4,4 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - miniflare@5.20261103.0-beta
   - wrangler@4.157.0
+  - '@solidjs/router@2.0.1'

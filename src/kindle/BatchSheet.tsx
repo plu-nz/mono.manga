@@ -1,5 +1,4 @@
-import { createEffect, createSignal, For, on, onMount, Show } from 'solid-js';
-import { A } from '@solidjs/router';
+import { createEffect, createSignal, For, onSettled, Show } from 'solid-js';
 import { Button } from '@plunz/storybook';
 import { chapterLabel } from '../core/types';
 import { getAccessToken, isGoogleConfigured, preloadGoogle } from '../google';
@@ -41,7 +40,7 @@ export function BatchSheet(props: { open: boolean; onClose: () => void }) {
   const canEmail = () => isGoogleConfigured() && Boolean(settings.kindleEmail);
   const chapterCount = () => batches().reduce((sum, batch) => sum + batch.chapters.length, 0);
 
-  onMount(() => { if (isGoogleConfigured()) void preloadGoogle(); });
+  onSettled(() => { if (isGoogleConfigured()) void preloadGoogle(); });
 
   async function check() {
     controller = new AbortController();
@@ -90,7 +89,7 @@ export function BatchSheet(props: { open: boolean; onClose: () => void }) {
   }
 
   // Start checking as soon as the sheet opens.
-  createEffect(on(() => props.open, open => { if (open) void check(); }, { defer: true }));
+  createEffect(() => props.open, open => { if (open) void check(); }, { defer: true });
 
   return (
     <Sheet open={props.open} onClose={close} title={t('Send new chapters')}>
@@ -110,7 +109,7 @@ export function BatchSheet(props: { open: boolean; onClose: () => void }) {
                   const first = batch.chapters[0];
                   const last = batch.chapters[batch.chapters.length - 1];
                   return (
-                    <li classList={{ active: current()?.index === index() }}>
+                    <li class={{ active: current()?.index === index() }}>
                       <div>
                         <strong>{batch.details.title}</strong>
                         <span class="muted small">
@@ -135,7 +134,7 @@ export function BatchSheet(props: { open: boolean; onClose: () => void }) {
         </Show>
 
         <Show when={!canEmail() && phase() === 'review' && batches().length}>
-          <p class="hint">{t('Add your Kindle email and connect Google in Settings to send directly.')} <A href="/settings#kindle" onClick={close}>{t('Settings')}</A></p>
+          <p class="hint">{t('Add your Kindle email and connect Google in Settings to send directly.')} <a href="/settings#kindle" onClick={close}>{t('Settings')}</a></p>
         </Show>
 
         <div class="sheet-actions">

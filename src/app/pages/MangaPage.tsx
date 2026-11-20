@@ -1,5 +1,5 @@
-import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show } from 'solid-js';
-import { A, useNavigate, useParams } from '@solidjs/router';
+import { createEffect, createMemo, createSignal, For, Show } from 'solid-js';
+import { useNavigate, useParams } from '@solidjs/router';
 import { Button } from '@plunz/storybook';
 import { chapterLabel, mangaKey, type ChapterSummary, type ReadingMode } from '../../core/types';
 import { groupByVolume, loadManga } from '../../library/manga';
@@ -33,11 +33,12 @@ import { mangaDexTitleUrl } from '../../providers/mangadex';
 import { formatDate, languageName, t, tn } from '../../i18n';
 import { SendSheet, type SendSheetApi } from '../../kindle/SendSheet';
 import { Cover, EmptyState, Icon, IconButton, errorMessage, toast } from '../ui';
+import { createLoaded } from '../loaded';
 
 export default function MangaPage() {
   const params = useParams<{ provider: string; id: string }>();
   const navigate = useNavigate();
-  const [data, { refetch }] = createResource(
+  const data = createLoaded(
     () => (isProviderId(params.provider) ? { provider: params.provider, id: decodeURIComponent(params.id) } : undefined),
     source => loadManga(source.provider, source.id).then(result => {
       void addRecentTitle(result.details);
@@ -45,6 +46,7 @@ export default function MangaPage() {
       return result;
     }),
   );
+  const refetch = data.refetch;
   const [selecting, setSelecting] = createSignal(false);
   const [selected, setSelected] = createSignal<Set<string>>(new Set());
   const [expanded, setExpanded] = createSignal(false);
@@ -107,11 +109,11 @@ export default function MangaPage() {
   }
 
   // Escape leaves selection, like the Done button.
-  createEffect(() => {
-    if (!selecting()) return;
+  createEffect(selecting, active => {
+    if (!active) return;
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') stopSelecting(); };
     document.addEventListener('keydown', onKey);
-    onCleanup(() => document.removeEventListener('keydown', onKey));
+    return () => document.removeEventListener('keydown', onKey);
   });
 
   /** The release after a hold lands on the new checkbox row; ignore it so the chapter stays selected. */
@@ -130,10 +132,9 @@ export default function MangaPage() {
   }
 
   // Once a title loads, look for an exact match on the extra source and reload with the filled chapters.
-  createEffect(() => {
-    const loaded = data();
+  createEffect(data, loaded => {
     if (!loaded || loaded.offline) return;
-    void autoLinkSource(loaded.details).then(linked => { if (linked) void refetch(); });
+    void autoLinkSource(loaded.details).then(linked => { if (linked) refetch(); });
   });
 
   /** Extra sources are open to everyone; the first use signs in with Google inside this tap. */
@@ -187,13 +188,13 @@ export default function MangaPage() {
         <IconButton icon="back" label={t('Back')} onClick={() => (history.length > 1 ? history.back() : navigate('/'))} />
       </header>
 
-      <Show when={data.error}>
+      <Show when={data.error()}>
         <EmptyState icon="library" title={t('Could not load this title')}>
-          <p>{errorMessage(data.error)}</p>
-          <Button type="button" variant="outline" onClick={() => void refetch()}>{t('Try again')}</Button>
+          <p>{errorMessage(data.error())}</p>
+          <Button type="button" variant="outline" onClick={() => refetch()}>{t('Try again')}</Button>
         </EmptyState>
       </Show>
-      <Show when={data.loading && !data()}><p class="muted center" role="status">{t('Loading…')}</p></Show>
+      <Show when={data.loading() && !data()}><p class="muted center" role="status">{t('Loading…')}</p></Show>
 
       <Show when={data()}>
         {loaded => (
@@ -213,21 +214,21 @@ export default function MangaPage() {
             <div class="action-row">
               <Show when={continueChapter()}>
                 {next => (
-                  <A class="plz-button plz-button--solid plz-button--md grow" href={readHref(next().chapter)}>
+                  <a class="plz-button plz-button--solid plz-button--md grow" href={readHref(next().chapter)}>
                     {next().resume ? t('Continue {chapter}', { chapter: chapterLabel({ ...next().chapter, title: undefined }) }) : t('Start reading')}
-                  </A>
+                  </a>
                 )}
               </Show>
-              <Button type="button" variant="outline" class={favorite() ? 'is-favorite' : ''} aria-pressed={favorite()} onClick={() => void toggleFavorite(loaded().details).then(() => { if (favorite()) toast(t('Added to your library. New chapters will be counted there.')); })}>
+              <Button type="button" variant="outline" class={favorite() ? 'is-favorite' : ''} aria-pressed={favorite() ? 'true' : 'false'} onClick={() => void toggleFavorite(loaded().details).then(() => { if (favorite()) toast(t('Added to your library. New chapters will be counted there.')); })}>
                 <Icon name={favorite() ? 'star' : 'starOutline'} size={18} /> {favorite() ? t('Favorite') : t('Add to favorites')}
               </Button>
             </div>
 
             <Show when={loaded().details.description}>
-              <div class="description" classList={{ expanded: expanded() }}>
+              <div class={["description", { expanded: expanded() }]}>
                 <p>{loaded().details.description}</p>
               </div>
-              <button type="button" class="text-button" aria-expanded={expanded()} onClick={() => setExpanded(!expanded())}>{expanded() ? t('Show less') : t('Show more')}</button>
+              <button type="button" class="text-button" aria-expanded={expanded() ? 'true' : 'false'} onClick={() => setExpanded(!expanded())}>{expanded() ? t('Show less') : t('Show more')}</button>
             </Show>
 
             <Show when={loaded().details.tags?.length}>
@@ -250,14 +251,14 @@ export default function MangaPage() {
                   <Icon name="plus" size={18} /> {sourceLink() ? t('Filling from {source}', { source: WEEBCENTRAL_NAME }) : t('Fill missing chapters')}
                 </Button>
               </div>
-              <SourceSheet open={linking()} onClose={() => setLinking(false)} details={loaded().details} onChanged={() => void refetch()} />
+              <SourceSheet open={linking()} onClose={() => setLinking(false)} details={loaded().details} onChanged={() => refetch()} />
             </Show>
 
             <div class="section-head">
               <h2>{tn(loaded().chapters.length, '{count} chapter', '{count} chapters')}</h2>
               <Show when={loaded().chapters.length}>
                 <div class="head-actions">
-                  <Button type="button" size="sm" variant="ghost" aria-pressed={Boolean(settings.newestFirst)} onClick={() => void updateSettings({ newestFirst: !settings.newestFirst })}>
+                  <Button type="button" size="sm" variant="ghost" aria-pressed={settings.newestFirst ? 'true' : 'false'} onClick={() => void updateSettings({ newestFirst: !settings.newestFirst })}>
                     <Icon name="sort" size={18} /> {settings.newestFirst ? t('Newest first') : t('Oldest first')}
                   </Button>
                 </div>
@@ -279,7 +280,7 @@ export default function MangaPage() {
                 <div class="volume">
                   <div class="volume-head">
                     <h3>
-                      <button type="button" class="volume-toggle" aria-expanded={!collapsed().has(groupKey(group))} onClick={() => toggleCollapsed(groupKey(group))}>
+                      <button type="button" class="volume-toggle" aria-expanded={!collapsed().has(groupKey(group)) ? 'true' : 'false'} onClick={() => toggleCollapsed(groupKey(group))}>
                         <Icon name="chevron" size={18} class="volume-chevron" />
                         <span>{group.volume ? t('Volume {volume}', { volume: group.volume }) : t('No volume')}</span>
                         <span class="volume-count">{group.chapters.length}</span>
@@ -299,7 +300,7 @@ export default function MangaPage() {
                         const read = () => isChapterRead(key(), chapter.id);
                         const body = (
                           <>
-                            <span class="chapter-title" classList={{ read: read() }}>{chapterLabel({ ...chapter, volume: undefined })}</span>
+                            <span class={["chapter-title", { read: read() }]}>{chapterLabel({ ...chapter, volume: undefined })}</span>
                             <span class="chapter-meta">
                               {[chapter.groups?.join(', '), languageName(chapter.language), formatDate(chapter.publishedAt)].filter(Boolean).join(' · ')}
                             </span>
@@ -313,7 +314,7 @@ export default function MangaPage() {
                           </>
                         );
                         return (
-                          <li class="chapter" classList={{ selected: selected().has(chapter.id) }}>
+                          <li class={["chapter", { selected: selected().has(chapter.id) }]}>
                             <Show when={!chapter.externalUrl} fallback={
                               <a class="chapter-link external" href={chapter.externalUrl} target="_blank" rel="noopener">
                                 {body}<span class="chapter-state"><Icon name="external" size={16} /> {t('Official site')}</span>
@@ -321,7 +322,7 @@ export default function MangaPage() {
                             }>
                               <Show when={selecting()} fallback={
                                 <>
-                                  <A class="chapter-link" href={readHref(chapter)} {...longPress(() => startSelecting(chapter))}>{body}</A>
+                                  <a class="chapter-link" href={readHref(chapter)} {...longPress(() => startSelecting(chapter))}>{body}</a>
                                   <div class="chapter-actions">
                                     <IconButton icon={read() ? 'unread' : 'check'} label={read() ? t('Mark as unread') : t('Mark as read')} pressed={read()} onClick={() => void setRead([chapter], !read())} />
                                     <Show when={loaded().details.provider !== 'local'}>

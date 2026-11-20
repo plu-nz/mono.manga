@@ -1,5 +1,5 @@
-import { createSignal, For, onCleanup, onMount, Show } from 'solid-js';
-import { A, useNavigate, useSearchParams } from '@solidjs/router';
+import { createSignal, For, onCleanup, onSettled, Show, untrack } from 'solid-js';
+import { useNavigate, useSearchParams } from '@solidjs/router';
 import { Button } from '@plunz/storybook';
 import type { MangaSummary } from '../../core/types';
 import { getProvider } from '../../providers';
@@ -14,7 +14,8 @@ const PAGE_SIZE = 24;
 export default function SearchPage() {
   const [params, setParams] = useSearchParams<{ q?: string }>();
   const navigate = useNavigate();
-  const [text, setText] = createSignal(params.q ?? '');
+  // Seeded once from the address; typing owns it afterwards.
+  const [text, setText] = createSignal(untrack(() => params.q ?? ''));
   const [items, setItems] = createSignal<MangaSummary[]>([]);
   const [total, setTotal] = createSignal(0);
   const [loading, setLoading] = createSignal(false);
@@ -53,8 +54,11 @@ export default function SearchPage() {
     timer = setTimeout(() => { setParams({ q: value.trim() || undefined }, { replace: true }); void run(value); }, 400);
   }
 
-  if (params.q) void run(params.q);
-  onMount(() => { void loadRecent(); });
+  // A shared or reloaded address searches once for its query.
+  onSettled(() => {
+    if (params.q) void run(params.q);
+    void loadRecent();
+  });
 
   function searchFor(query: string) {
     clearTimeout(timer);
@@ -102,7 +106,7 @@ export default function SearchPage() {
       </form>
 
       <div class="import-row">
-        <label class="import-button" aria-busy={importing()}>
+        <label class="import-button" aria-busy={importing() ? 'true' : undefined}>
           <Icon name="upload" />
           <span>{importing() ? t('Importing…') : t('Import your files (CBZ, ZIP, images)')}</span>
           <input type="file" class="sr-only" multiple accept=".cbz,.zip,application/zip,image/*" disabled={importing()} onChange={event => { void onImport(event.currentTarget.files); event.currentTarget.value = ''; }} />
@@ -151,10 +155,10 @@ export default function SearchPage() {
                 <For each={recentTitles()}>
                   {item => (
                     <li>
-                      <A class="tile" href={`/manga/${item.provider}/${encodeURIComponent(item.id)}`}>
+                      <a class="tile" href={`/manga/${item.provider}/${encodeURIComponent(item.id)}`}>
                         <Cover url={item.coverUrl} title={item.title} />
                         <span class="tile-title">{item.title}</span>
-                      </A>
+                      </a>
                     </li>
                   )}
                 </For>
@@ -164,17 +168,17 @@ export default function SearchPage() {
         </Show>
       </Show>
 
-      <ul class="grid" aria-busy={loading()}>
+      <ul class="grid" aria-busy={loading() ? 'true' : undefined}>
         <For each={items()}>
           {item => (
             <li>
-              <A class="tile" href={`/manga/${item.provider}/${encodeURIComponent(item.id)}`} onClick={() => void addRecentSearch(text())}>
+              <a class="tile" href={`/manga/${item.provider}/${encodeURIComponent(item.id)}`} onClick={() => void addRecentSearch(text())}>
                 <Cover url={item.coverUrl} title={item.title} />
                 <span class="tile-title">{item.title}</span>
                 <Show when={item.year || item.status}>
                   <span class="tile-meta">{[item.year, item.status ? t(item.status) : undefined].filter(Boolean).join(' · ')}</span>
                 </Show>
-              </A>
+              </a>
             </li>
           )}
         </For>

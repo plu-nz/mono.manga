@@ -29,6 +29,7 @@ Local-first SolidJS PWA. User data never reaches a PLUNZ server.
 - Keep MangaDex attribution and scanlation group credits visible. Do not add ads, paywalls, or server-side storage of manga.
 - Every directory has a `README.md` indexing its files; update it when adding, moving, or removing files.
 - Add dependencies only for a concrete need, and explain them in the change.
+- The app runs Solid 2 (`solid-js`, `@solidjs/web`) and `@solidjs/router` 2. Solid 2 is not Solid 1: read `node_modules/solid-js/CHEATSHEET.md` before writing Solid code. Effects take a compute and an apply function, a write shows on the next flush, and stores that decide on what they just wrote keep a plain copy for those reads (see `src/library/store.ts`). Links are plain `<a>` elements; the router marks the current one with `data-active`. Tests run Solid's client build; call `flush()` before asserting on a write.
 
 ## Commands
 

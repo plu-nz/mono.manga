@@ -1,4 +1,4 @@
-import { onMount } from 'solid-js';
+import { onSettled } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { completeAniListConnect } from '../../trackers/anilist';
 import { t } from '../../i18n';
@@ -7,7 +7,7 @@ import { errorMessage, toast } from '../ui';
 /** AniList redirects here with the token in the fragment; finish and go back to Settings. */
 export default function AniListCallbackPage() {
   const navigate = useNavigate();
-  onMount(() => {
+  onSettled(() => {
     const hash = location.hash;
     // Drop the token from the address bar and history right away.
     history.replaceState(null, '', location.pathname);

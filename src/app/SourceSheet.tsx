@@ -1,4 +1,4 @@
-import { createSignal, For, Show, createEffect, on } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, Show } from 'solid-js';
 import { Button, TextField } from '@plunz/storybook';
 import { mangaKey, type MangaDetails, type MangaSummary } from '../core/types';
 import { forgetLinkedChapters } from '../library/manga';
@@ -32,12 +32,17 @@ export function SourceSheet(props: { open: boolean; onClose: () => void; details
   }
 
   // Search by the title's name as soon as the sheet opens.
-  createEffect(on(() => props.open, open => {
-    if (!open) return;
-    setQuery(props.details.title);
-    setResults(undefined);
-    void search(props.details.title);
-  }));
+  // A memo, so a refreshed title object with the same name does not search again.
+  const openedFor = createMemo(() => (props.open ? props.details.title : undefined));
+  createEffect(
+    openedFor,
+    title => {
+      if (title === undefined) return;
+      setQuery(title);
+      setResults(undefined);
+      void search(title);
+    },
+  );
 
   async function choose(item: MangaSummary | undefined) {
     await setSourceLink(props.details, item ? { id: item.id, title: item.title } : undefined);

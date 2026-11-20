@@ -1,5 +1,4 @@
-import { createStore, reconcile, unwrap } from 'solid-js/store';
-import { createSignal } from 'solid-js';
+import { createSignal, createStore, reconcile } from 'solid-js';
 import {
   chapterMarks,
   DEFAULT_SETTINGS,
@@ -30,6 +29,36 @@ const [ready, setReady] = createSignal(false);
 
 export { library, progress, settings, ready };
 
+/*
+ * Plain copies of the same records for this module's own reads. Store writes
+ * show on the next flush, and a write is followed here by decisions on what
+ * was just written (often after an await), so those decisions read these.
+ */
+let libraryNow: Record<MangaKey, LibraryEntry> = {};
+let progressNow: Record<MangaKey, ReadingProgress> = {};
+let settingsNow: AppSettings = { ...DEFAULT_SETTINGS };
+
+function storeEntry(entry: LibraryEntry): void {
+  libraryNow[entry.key] = entry;
+  setLibrary(draft => {
+    if (draft[entry.key]) reconcile(entry)(draft[entry.key]);
+    else draft[entry.key] = entry;
+  });
+}
+
+function storeProgress(entry: ReadingProgress): void {
+  progressNow[entry.key] = entry;
+  setProgress(draft => {
+    if (draft[entry.key]) reconcile(entry)(draft[entry.key]);
+    else draft[entry.key] = entry;
+  });
+}
+
+function storeSettings(next: AppSettings): void {
+  settingsNow = next;
+  setSettingsStore(reconcile(next));
+}
+
 type ChangeListener = () => void;
 const listeners = new Set<ChangeListener>();
 
@@ -57,9 +86,11 @@ async function readAll(): Promise<void> {
     database.getAll('progress'),
     readSettings(),
   ]);
-  setLibrary(reconcile(Object.fromEntries(entries.map(entry => [entry.key, entry]))));
-  setProgress(reconcile(Object.fromEntries(progressEntries.map(entry => [entry.key, entry]))));
-  setSettingsStore(reconcile({ ...DEFAULT_SETTINGS, ...stored }));
+  libraryNow = Object.fromEntries(entries.map(entry => [entry.key, entry]));
+  progressNow = Object.fromEntries(progressEntries.map(entry => [entry.key, entry]));
+  setLibrary(reconcile({ ...libraryNow }));
+  setProgress(reconcile({ ...progressNow }));
+  storeSettings({ ...DEFAULT_SETTINGS, ...stored });
   setReady(true);
 }
 
@@ -79,17 +110,22 @@ function plain<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function liveEntry(key: MangaKey): LibraryEntry | undefined {
+  const entry = libraryNow[key];
+  return entry && !entry.deleted ? entry : undefined;
+}
+
 async function putEntry(input: LibraryEntry): Promise<void> {
   const entry = plain(input);
   await (await db()).put('library', entry);
-  setLibrary(entry.key, reconcile(entry));
+  storeEntry(entry);
   changed();
 }
 
 export async function addToLibrary(details: MangaDetails): Promise<void> {
   const key = mangaKey(details.provider, details.id);
   const now = Date.now();
-  const previous = library[key];
+  const previous = libraryNow[key];
   await putEntry({
     key,
     provider: details.provider,
@@ -106,34 +142,34 @@ export async function addToLibrary(details: MangaDetails): Promise<void> {
 }
 
 export async function removeFromLibrary(key: MangaKey): Promise<void> {
-  const entry = library[key];
+  const entry = libraryNow[key];
   if (!entry) return;
   await putEntry({ ...entry, favorite: false, deleted: true, updatedAt: Date.now() });
 }
 
 export async function setFavorite(details: MangaDetails, favorite: boolean): Promise<void> {
   const key = mangaKey(details.provider, details.id);
-  if (!isInLibrary(key)) await addToLibrary(details);
-  await putEntry({ ...library[key], favorite, updatedAt: Date.now() });
+  if (!liveEntry(key)) await addToLibrary(details);
+  await putEntry({ ...libraryNow[key], favorite, updatedAt: Date.now() });
 }
 
 export async function toggleFavorite(details: MangaDetails): Promise<void> {
   const key = mangaKey(details.provider, details.id);
-  await setFavorite(details, !(isInLibrary(key) && library[key].favorite));
+  await setFavorite(details, !liveEntry(key)?.favorite);
 }
 
 /** Per-title reading mode; keeps a (non-favorite) entry so the choice survives and syncs. */
 export async function setTitleMode(details: MangaDetails, mode: ReadingMode | undefined): Promise<void> {
   const key = mangaKey(details.provider, details.id);
-  if (!isInLibrary(key)) await addToLibrary(details);
-  await putEntry({ ...library[key], mode, updatedAt: Date.now() });
+  if (!liveEntry(key)) await addToLibrary(details);
+  await putEntry({ ...libraryNow[key], mode, updatedAt: Date.now() });
 }
 
 /** Link (or unlink) an extra source that fills chapters missing from the title's provider. */
 export async function setSourceLink(details: MangaDetails, link: SourceLink | undefined): Promise<void> {
   const key = mangaKey(details.provider, details.id);
-  if (!isInLibrary(key)) await addToLibrary(details);
-  const current = unwrap(library[key]);
+  if (!liveEntry(key)) await addToLibrary(details);
+  const current = libraryNow[key];
   const sources = { ...current.sources };
   if (link) {
     sources.weebcentral = { id: link.id, title: link.title };
@@ -153,8 +189,8 @@ export async function saveProgress(input: {
   page: number;
   pageCount: number;
 }): Promise<void> {
-  const previous = progress[input.key];
-  const chapters = previous && !previous.deleted ? chapterMarks(unwrap(previous)) : {};
+  const previous = progressNow[input.key];
+  const chapters = previous && !previous.deleted ? chapterMarks(previous) : {};
   const now = Date.now();
   // Reaching the last page counts as finishing the chapter.
   if (input.pageCount > 0 && input.page >= input.pageCount - 1 && !chapters[input.chapter.id]?.read) {
@@ -171,13 +207,13 @@ export async function saveProgress(input: {
   };
   next.read = readChapterIds(next);
   await (await db()).put('progress', plain(next));
-  setProgress(input.key, reconcile(next));
+  storeProgress(plain(next));
   changed();
 }
 
 export async function setChaptersRead(key: MangaKey, chapterIds: string[], value: boolean): Promise<void> {
-  const previous = progress[key];
-  const live = previous && !previous.deleted ? unwrap(previous) : undefined;
+  const previous = progressNow[key];
+  const live = previous && !previous.deleted ? previous : undefined;
   const chapters = chapterMarks(live);
   const now = Date.now();
   for (const id of chapterIds) chapters[id] = { read: value, at: now };
@@ -186,7 +222,7 @@ export async function setChaptersRead(key: MangaKey, chapterIds: string[], value
     : { key, chapterId: chapterIds[0] ?? '', page: 0, pageCount: 0, chapters, updatedAt: now };
   next.read = readChapterIds(next);
   await (await db()).put('progress', plain(next));
-  setProgress(key, reconcile(next));
+  storeProgress(plain(next));
   changed();
 }
 
@@ -196,8 +232,8 @@ const MAX_SENT_IDS = 2000;
 export async function markSentToKindle(details: MangaDetails, chapters: ChapterSummary[]): Promise<void> {
   if (!chapters.length) return;
   const key = mangaKey(details.provider, details.id);
-  if (!isInLibrary(key)) await addToLibrary(details);
-  const entry = library[key];
+  if (!liveEntry(key)) await addToLibrary(details);
+  const entry = libraryNow[key];
   const previous = entry.kindle;
   const sent = [...(previous?.sentIds ?? []).filter(id => !chapters.some(chapter => chapter.id === id)), ...chapters.map(chapter => chapter.id)];
   const numbers = chapters.map(chapter => Number(chapter.number)).filter(Number.isFinite);
@@ -217,7 +253,7 @@ export async function markSentToKindle(details: MangaDetails, chapters: ChapterS
  * the title's current `known` chapter list.
  */
 export async function unmarkSentToKindle(key: MangaKey, chapters: ChapterSummary[], known: ChapterSummary[]): Promise<void> {
-  const entry = library[key];
+  const entry = libraryNow[key];
   const previous = entry?.kindle;
   if (!previous || entry.deleted) return;
   const removed = new Set(chapters.map(chapter => chapter.id));
@@ -235,7 +271,7 @@ export async function unmarkSentToKindle(key: MangaKey, chapters: ChapterSummary
         lastGroups: keepPrevious ? previous.lastGroups : latest?.groups,
       }
     : undefined;
-  await putEntry({ ...unwrap(entry), kindle, updatedAt: Date.now() });
+  await putEntry({ ...entry, kindle, updatedAt: Date.now() });
 }
 
 export function isSentToKindle(key: MangaKey, chapterId: string): boolean {
@@ -252,10 +288,9 @@ export function isChapterRead(key: MangaKey, chapterId: string): boolean {
 export async function updateSettings(patch: Partial<Omit<AppSettings, 'updatedAt'>>): Promise<void> {
   // Merge into the stored settings, never into defaults shown before loading finished.
   await loadLibrary();
-  // Store values are proxies, which IndexedDB cannot clone; persist a plain copy.
-  const next: AppSettings = plain({ ...unwrap(settings), ...patch, updatedAt: Date.now() });
+  const next: AppSettings = plain({ ...settingsNow, ...patch, updatedAt: Date.now() });
   await writeSettings(next);
-  setSettingsStore(reconcile(next));
+  storeSettings(next);
   changed();
 }
 
@@ -289,12 +324,12 @@ export async function applyCollection(collection: SyncCollection, records: Recor
     if (!incoming) return;
     const next = { ...DEFAULT_SETTINGS, ...incoming };
     await writeSettings(next);
-    setSettingsStore(reconcile(next));
+    storeSettings(next);
     return;
   }
   const tx = database.transaction(collection, 'readwrite');
   for (const record of Object.values(records)) await tx.store.put(record as LibraryEntry & ReadingProgress);
   await tx.done;
-  if (collection === 'library') for (const record of Object.values(records) as LibraryEntry[]) setLibrary(record.key, reconcile(record));
-  else for (const record of Object.values(records) as ReadingProgress[]) setProgress(record.key, reconcile(record));
+  if (collection === 'library') for (const record of Object.values(records) as LibraryEntry[]) storeEntry(record);
+  else for (const record of Object.values(records) as ReadingProgress[]) storeProgress(record);
 }

@@ -1,5 +1,5 @@
-import { createResource, createSignal, onCleanup, Show, type JSX, splitProps, createEffect } from 'solid-js';
-import { Portal } from 'solid-js/web';
+import { createEffect, createSignal, omit, Show } from 'solid-js';
+import { Portal, type JSX } from '@solidjs/web';
 import { LOCAL_COVER_PREFIX } from '../providers/local';
 import { getStoredPage } from '../storage/downloads';
 import { t } from '../i18n';
@@ -49,18 +49,25 @@ export function Icon(props: { name: IconName; size?: number; class?: string; lab
 /** Cover image that also resolves covers of imported titles from IndexedDB. */
 export function Cover(props: { url?: string; title: string; class?: string; eager?: boolean }) {
   const [failed, setFailed] = createSignal(false);
-  const [src] = createResource(
-    () => props.url,
-    async url => {
-      if (!url.startsWith(LOCAL_COVER_PREFIX)) return url;
-      const blob = await getStoredPage(`local:${url.slice(LOCAL_COVER_PREFIX.length)}`, 0);
-      return blob ? URL.createObjectURL(blob) : undefined;
-    },
-  );
-  createEffect(() => {
-    const value = src();
-    if (value?.startsWith('blob:')) onCleanup(() => URL.revokeObjectURL(value));
+  const local = () => (props.url?.startsWith(LOCAL_COVER_PREFIX) ? props.url : undefined);
+  // Imported covers load from IndexedDB beside the page instead of holding it.
+  const [localSrc, setLocalSrc] = createSignal<string>();
+  createEffect(local, url => {
+    setLocalSrc(undefined);
+    if (!url) return;
+    let active = true;
+    let objectUrl: string | undefined;
+    void getStoredPage(`local:${url.slice(LOCAL_COVER_PREFIX.length)}`, 0).then(blob => {
+      if (!active || !blob) return;
+      objectUrl = URL.createObjectURL(blob);
+      setLocalSrc(objectUrl);
+    });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   });
+  const src = () => (local() ? localSrc() : props.url);
   return (
     <div class={`cover ${props.class ?? ''}`}>
       <Show when={src() && !failed()} fallback={<span class="cover-fallback" aria-hidden="true">{props.title.slice(0, 1).toUpperCase()}</span>}>
@@ -73,11 +80,14 @@ export function Cover(props: { url?: string; title: string; class?: string; eage
 /** Accessible bottom sheet built on the native dialog element. */
 export function Sheet(props: { open: boolean; onClose: () => void; title: string; children: JSX.Element }) {
   let dialog: HTMLDialogElement | undefined;
-  createEffect(() => {
-    if (!dialog) return;
-    if (props.open && !dialog.open) dialog.showModal();
-    if (!props.open && dialog.open) dialog.close();
-  });
+  createEffect(
+    () => props.open,
+    open => {
+      if (!dialog) return;
+      if (open && !dialog.open) dialog.showModal();
+      if (!open && dialog.open) dialog.close();
+    },
+  );
   return (
     <Portal>
       <dialog
@@ -124,9 +134,11 @@ export function EmptyState(props: { icon: IconName; title: string; children?: JS
 }
 
 export function IconButton(props: JSX.ButtonHTMLAttributes<HTMLButtonElement> & { icon: IconName; label: string; pressed?: boolean }) {
-  const [local, rest] = splitProps(props, ['icon', 'label', 'pressed', 'class']);
+  const local = props;
+  const rest = omit(props, 'icon', 'label', 'pressed', 'class');
+  const pressed = () => (local.pressed === undefined ? undefined : local.pressed ? 'true' : 'false');
   return (
-    <button type="button" {...rest} class={`icon-button ${local.class ?? ''}`} aria-label={local.label} title={local.label} aria-pressed={local.pressed}>
+    <button type="button" {...rest} class={`icon-button ${local.class ?? ''}`} aria-label={local.label} title={local.label} aria-pressed={pressed()}>
       <Icon name={local.icon} />
     </button>
   );

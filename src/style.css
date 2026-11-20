@@ -57,7 +57,7 @@ body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
   /* Full-width bar, items aligned with the 960px content column (minus its 16px gutters). */
   padding-inline: max(0px, calc((100% - 928px) / 2)); }
 .nav-link { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 60px; color: var(--plz-muted) !important; text-decoration: none; font-size: .6875rem; font-weight: 700; }
-.nav-link.active { color: var(--plz-accent) !important; }
+.nav-link[data-active] { color: var(--plz-accent) !important; }
 .nav-icon { position: relative; }
 .nav-badge { position: absolute; top: -6px; right: -10px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--plz-red); color: var(--plz-bg); font-size: .6875rem; line-height: 18px; text-align: center; box-sizing: border-box; }
 

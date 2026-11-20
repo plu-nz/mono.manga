@@ -1,11 +1,10 @@
-import { createStore, produce } from 'solid-js/store';
-import { createSignal } from 'solid-js';
+import { createSignal, createStore, reconcile } from 'solid-js';
 import { mangaKey, type ChapterSummary } from '../core/types';
 import { chapterKey, requestPersistentStorage, type ChapterKey } from '../storage/db';
 import { deleteDownload, downloadChapter, listDownloads } from '../storage/downloads';
 import { remotePageRefs } from '../reader/pages';
 import { deleteCachedManga, listCachedManga, putCachedManga } from '../storage/manga-cache';
-import { library, removeFromLibrary, settings } from './store';
+import { removeFromLibrary, settings } from './store';
 
 export interface DownloadState {
   status: 'queued' | 'downloading' | 'complete' | 'partial' | 'error';
@@ -19,17 +18,29 @@ const [states, setStates] = createStore<Record<ChapterKey, DownloadState>>({});
 const [version, setVersion] = createSignal(0);
 export { states as downloadStates, version as downloadsVersion };
 
+// The same states for the queue's own decisions: a store write shows on the
+// next flush, and the queue reads a state right after setting it.
+const statesNow: Record<ChapterKey, DownloadState> = {};
+
+function setState(key: ChapterKey, state: DownloadState | undefined): void {
+  if (state) statesNow[key] = state;
+  else delete statesNow[key];
+  setStates(draft => {
+    if (!state) delete draft[key];
+    else if (draft[key]) reconcile(state)(draft[key]);
+    else draft[key] = state;
+  });
+}
+
 const queue: Array<{ chapter: ChapterSummary; title: string }> = [];
 let running = false;
 let current: AbortController | undefined;
 
 export async function loadDownloadStates(): Promise<void> {
   const records = await listDownloads();
-  setStates(produce(draft => {
-    for (const record of records) {
-      draft[record.chapterKey] = { status: record.status, done: record.storedPages, total: record.pageCount };
-    }
-  }));
+  for (const record of records) {
+    setState(record.chapterKey, { status: record.status, done: record.storedPages, total: record.pageCount });
+  }
 }
 
 export function isDownloaded(chapter: ChapterSummary): boolean {
@@ -40,8 +51,9 @@ export function queueDownloads(chapters: ChapterSummary[], mangaTitle: string): 
   void requestPersistentStorage();
   for (const chapter of chapters) {
     const key = chapterKey(chapter);
-    if (chapter.externalUrl || states[key]?.status === 'complete' || states[key]?.status === 'queued' || states[key]?.status === 'downloading') continue;
-    setStates(key, { status: 'queued', done: states[key]?.done ?? 0, total: chapter.pages });
+    const status = statesNow[key]?.status;
+    if (chapter.externalUrl || status === 'complete' || status === 'queued' || status === 'downloading') continue;
+    setState(key, { status: 'queued', done: statesNow[key]?.done ?? 0, total: chapter.pages });
     queue.push({ chapter, title: mangaTitle });
   }
   void pump();
@@ -54,9 +66,9 @@ async function pump(): Promise<void> {
     while (queue.length) {
       const { chapter, title } = queue.shift()!;
       const key = chapterKey(chapter);
-      if (states[key]?.status !== 'queued') continue;
+      if (statesNow[key]?.status !== 'queued') continue;
       current = new AbortController();
-      setStates(key, { status: 'downloading', done: 0, total: chapter.pages });
+      setState(key, { status: 'downloading', done: 0, total: chapter.pages });
       try {
         const pages = await remotePageRefs(chapter, settings.dataSaver, current.signal);
         const record = await downloadChapter({
@@ -65,11 +77,11 @@ async function pump(): Promise<void> {
           chapter,
           pages,
           signal: current.signal,
-          onProgress: progress => setStates(key, { status: 'downloading', done: progress.done, total: progress.total }),
+          onProgress: progress => setState(key, { status: 'downloading', done: progress.done, total: progress.total }),
         });
-        setStates(key, { status: record.status, done: record.storedPages, total: record.pageCount });
+        setState(key, { status: record.status, done: record.storedPages, total: record.pageCount });
       } catch (error) {
-        setStates(key, { status: current.signal.aborted ? 'partial' : 'error', done: states[key]?.done ?? 0, total: chapter.pages, error });
+        setState(key, { status: current.signal.aborted ? 'partial' : 'error', done: statesNow[key]?.done ?? 0, total: chapter.pages, error });
       }
       setVersion(value => value + 1);
     }
@@ -80,14 +92,18 @@ async function pump(): Promise<void> {
 }
 
 export function cancelDownloads(): void {
-  for (const item of queue.splice(0)) setStates(chapterKey(item.chapter), 'status', 'partial');
+  for (const item of queue.splice(0)) {
+    const key = chapterKey(item.chapter);
+    const state = statesNow[key];
+    if (state) setState(key, { ...state, status: 'partial' });
+  }
   current?.abort();
 }
 
 export async function removeDownload(key: ChapterKey): Promise<void> {
   await deleteDownload(key);
   if (key.startsWith('local:')) await forgetImportedChapter(key.slice('local:'.length));
-  setStates(produce(draft => { delete draft[key]; }));
+  setState(key, undefined);
   setVersion(value => value + 1);
 }
 
@@ -101,7 +117,7 @@ async function forgetImportedChapter(chapterId: string): Promise<void> {
       await putCachedManga({ ...cached, chapters, details: { ...cached.details, coverUrl: cover } });
     } else {
       await deleteCachedManga(cached.key);
-      if (library[cached.key]) await removeFromLibrary(cached.key);
+      await removeFromLibrary(cached.key);
     }
   }
 }

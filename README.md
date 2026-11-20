@@ -26,7 +26,7 @@ Local-first and client-side. There is no database and no account. Nothing about 
 
 The Worker is a GET-only allowlist relay with edge caching and a per-IP rate limit. It stores nothing and never sees Google tokens or files. The same Worker serves the built app through Workers Assets.
 
-Stack: SolidJS, TypeScript, Vite, `vite-plugin-pwa`, `@solidjs/router`, `idb`, `fflate`, Hono on Cloudflare Workers, Vitest, and the shared [`@plunz/storybook`](https://github.com/plu-nz/lib.storybook) components. See the [source index](src/README.md) and the [Worker notes](worker/README.md).
+Stack: SolidJS 2, TypeScript, Vite, `vite-plugin-pwa`, `@solidjs/router`, `idb`, `fflate`, Hono on Cloudflare Workers, Vitest, and the shared [`@plunz/storybook`](https://github.com/plu-nz/lib.storybook) components. See the [source index](src/README.md) and the [Worker notes](worker/README.md).
 
 ## Development
 
