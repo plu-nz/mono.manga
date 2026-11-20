@@ -244,7 +244,7 @@ export default function SettingsPage() {
         <h2 id="about-heading">{t('About')}</h2>
         <p class="hint">{t('Your library, progress, and downloads stay on this device. PLUNZ has no account and stores no manga. Titles and chapters come from MangaDex and are translated by the scanlation groups credited on each chapter.')}</p>
         <p class="hint">{t('Support the official release when it is available in your country.')}</p>
-        <p><a href="https://mangadex.org" target="_blank" rel="noopener">MangaDex</a> · <a href="https://plu.nz" target="_blank" rel="noopener">PLUNZ</a> · <a href="/privacy">{t('Privacy')}</a></p>
+        <p><a href="https://mangadex.org" target="_blank" rel="noopener">MangaDex</a> · <a href="https://plu.nz" target="_blank" rel="noopener">PLUNZ</a> · <a href="/privacy" rel="external">{t('Privacy')}</a></p>
       </section>
     </section>
   );
