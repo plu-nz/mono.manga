@@ -14,7 +14,7 @@
     "deploy": "pnpm run build && wrangler deploy"
   },
   "dependencies": {
-    "@plunz/storybook": "github:plu-nz/lib.storybook#9d6dc67",
+    "@plunz/storybook": "github:plu-nz/lib.storybook#577a0d1",
     "@solidjs/router": "^2.0.1",
     "@solidjs/web": "^2.0.3",
     "fflate": "^0.8.2",
